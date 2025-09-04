@@ -1,0 +1,36 @@
+version: "2"
+linters:
+  default: standard
+  # set of linters in addition to the default set (https://golangci-lint.run/usage/linters/#enabled-by-default)
+  enable:
+    - embeddedstructfieldcheck
+    - gocritic
+    - gosec
+    - nilerr
+    - revive
+    - unconvert
+    - unparam
+    - whitespace
+  exclusions:
+    generated: lax
+    rules:
+    # revive:
+      - path: (.+)\.go$
+        text: dot-imports # should not use dot imports
+      - path: (.+)\.go$
+        text: package-comments # package comment should be of the form
+      - path: (.+)\.go$
+        text: 'avoid meaningless package names'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+run:
+  concurrency: 4

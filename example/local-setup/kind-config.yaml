@@ -1,0 +1,31 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+        # enable auditing flags on the API server
+        extraArgs:
+          audit-webhook-config-file: /etc/kubernetes/auditlog-forwarder/kubeconfig.yaml
+          audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
+        # mount new files / directories on the control plane
+        extraVolumes:
+          - name: audit-policies
+            hostPath: /etc/kubernetes/policies
+            mountPath: /etc/kubernetes/policies
+            readOnly: true
+            pathType: "DirectoryOrCreate"
+          - name: auditlog-forwarder
+            hostPath: /etc/kubernetes/auditlog-forwarder
+            mountPath: /etc/kubernetes/auditlog-forwarder
+            readOnly: true
+            pathType: "DirectoryOrCreate"
+  extraMounts:
+  - hostPath: ./example/local-setup/audit-policy.yaml
+    containerPath: /etc/kubernetes/policies/audit-policy.yaml
+    readOnly: true
+  - hostPath: ./example/local-setup/auditlog-forwarder-kubeconfig.yaml
+    containerPath: /etc/kubernetes/auditlog-forwarder/kubeconfig.yaml
+    readOnly: true

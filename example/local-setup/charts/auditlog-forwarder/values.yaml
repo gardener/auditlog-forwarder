@@ -1,0 +1,13 @@
+tls:
+  crt: |
+    -----BEGIN CERTIFICATE-----
+    MIID...
+    -----END CERTIFICATE-----
+  key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIE...
+    -----END PRIVATE KEY-----
+
+image:
+  repository: local-skaffold/auditlog-forwarder
+  tag: latest
