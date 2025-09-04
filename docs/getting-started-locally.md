@@ -14,5 +14,5 @@ make server-up
 You can now target the KinD cluster.
 
 ```bash
-export KUBECONFIG=$(pwd)/example/local-setup/kind/kubeconfig
+export KUBECONFIG=$(pwd)/dev/local/kind/kubeconfig
 ```

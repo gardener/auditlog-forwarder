@@ -9,7 +9,7 @@ HACK_DIR               := $(REPO_ROOT)/hack
 VERSION                := $(shell cat "$(REPO_ROOT)/VERSION")
 EFFECTIVE_VERSION      := $(VERSION)-$(shell git rev-parse HEAD)
 LD_FLAGS               := "-w $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION $(NAME))"
-KIND_LOCAL_KUBECONFIG  := $(REPO_ROOT)/example/local-setup/kind/kubeconfig
+KIND_LOCAL_KUBECONFIG  := $(REPO_ROOT)/dev/local/kind/kubeconfig
 
 TOOLS_DIR := $(REPO_ROOT)/hack/tools
 include $(GARDENER_HACK_DIR)/tools.mk
