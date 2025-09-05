@@ -14,12 +14,21 @@ linters:
   exclusions:
     generated: lax
     rules:
-    # revive:
-      - path: (.+)\.go$
+      - linters:
+        - revive
+        path: (.+)defaults\.go$
+        text: 'var-naming'
+      - linters:
+        - revive
+        path: (.+)\.go$
         text: dot-imports # should not use dot imports
-      - path: (.+)\.go$
+      - linters:
+        - revive
+        path: (.+)\.go$
         text: package-comments # package comment should be of the form
-      - path: (.+)\.go$
+      - linters:
+        - revive
+        path: (.+)\.go$
         text: 'avoid meaningless package names'
     paths:
       - third_party$

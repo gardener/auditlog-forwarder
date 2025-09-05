@@ -10,7 +10,7 @@ import (
 )
 
 // ValidateAuditlogForwarderConfiguration validates the given [*configv1alpha1.AuditlogForwarderConfiguration].
-func ValidateAuditlogForwarderConfiguration(conf *configv1alpha1.AuditlogForwarderConfiguration) field.ErrorList {
+func ValidateAuditlogForwarderConfiguration(_ *configv1alpha1.AuditlogForwarderConfiguration) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	return allErrs
