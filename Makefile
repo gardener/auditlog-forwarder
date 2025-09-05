@@ -16,7 +16,7 @@ include $(GARDENER_HACK_DIR)/tools.mk
 
 .PHONY: format
 format: $(GOIMPORTS) $(GOIMPORTSREVISER)
-	@bash $(GARDENER_HACK_DIR)/format.sh ./cmd ./internal
+	@bash $(GARDENER_HACK_DIR)/format.sh ./cmd ./internal ./pkg
 
 .PHONY: test
 test:
@@ -24,19 +24,20 @@ test:
 
 .PHONY: clean
 clean:
-	@bash $(GARDENER_HACK_DIR)/clean.sh ./cmd/... ./internal/...
+	@bash $(GARDENER_HACK_DIR)/clean.sh ./cmd/... ./internal/... ./pkg/...
 
 .PHONY: check
 check: $(GOIMPORTS) $(GOLANGCI_LINT) $(TYPOS)
 	go vet ./...
-	@REPO_ROOT=$(REPO_ROOT) bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./internal/...
+	@REPO_ROOT=$(REPO_ROOT) bash $(GARDENER_HACK_DIR)/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./internal/... ./pkg/...
 
 	@bash $(GARDENER_HACK_DIR)/check-typos.sh
 	@bash $(GARDENER_HACK_DIR)/check-file-names.sh
 
 .PHONY: generate
-generate:
-	$(MAKE) format
+generate: $(VGOPATH) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS)
+	@REPO_ROOT=$(REPO_ROOT) VGOPATH=$(VGOPATH) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) bash $(GARDENER_HACK_DIR)/generate-sequential.sh ./cmd/... ./internal/... ./pkg/...
+	@REPO_ROOT=$(REPO_ROOT) VGOPATH=$(VGOPATH) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) $(REPO_ROOT)/hack/update-codegen.sh
 
 .PHONY: check-generate
 check-generate:
@@ -56,7 +57,7 @@ sast-report: $(GOSEC)
 
 .PHONY: test-cov
 test-cov:
-	@bash $(GARDENER_HACK_DIR)/test-cover.sh ./cmd/... ./internal/...
+	@bash $(GARDENER_HACK_DIR)/test-cover.sh ./cmd/... ./internal/... ./pkg/...
 
 .PHONY: test-clean
 test-clean:
