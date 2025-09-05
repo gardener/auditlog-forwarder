@@ -6,6 +6,8 @@ tool github.com/gardener/gardener/hack
 
 require (
 	github.com/go-logr/logr v1.4.3
+	github.com/onsi/ginkgo/v2 v2.25.0
+	github.com/onsi/gomega v1.38.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.7
 	k8s.io/apimachinery v0.34.0
@@ -47,7 +49,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/ginkgo/v2 v2.25.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.23.0 // indirect

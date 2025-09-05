@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package audit
 
 import (
@@ -29,11 +33,14 @@ func init() {
 	_ = audit.AddToScheme(runtimeScheme)
 }
 
+// Handler handles incoming audit events.
+// It additionally enriches the events with metadata and sends them to configured backednds.
 type Handler struct {
 	logger      logr.Logger
 	annotations map[string]string
 }
 
+// NewHandler creates a new [Handler].
 func NewHandler(logger logr.Logger, annotations map[string]string) (*Handler, error) {
 	return &Handler{
 		logger:      logger,
@@ -47,7 +54,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error(err, "Reading request body")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"code":500,"message":"failed reading body request"}`))
+		if _, err := w.Write([]byte(`{"code":500,"message":"failed reading body request"}`)); err != nil {
+			h.logger.Error(err, "Writing response body")
+			return
+		}
 		return
 	}
 
@@ -56,7 +66,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error(err, "Decoding body")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"code":400,"message":"invalid body format"}`))
+		if _, err := w.Write([]byte(`{"code":400,"message":"invalid body format"}`)); err != nil {
+			h.logger.Error(err, "Writing response body")
+			return
+		}
 		return
 	}
 
@@ -72,7 +85,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error(err, "Encoding response body")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"code":500,"message":"failed encoding response body"}`))
+		if _, err := w.Write([]byte(`{"code":500,"message":"failed encoding response body"}`)); err != nil {
+			h.logger.Error(err, "Writing response body")
+			return
+		}
 		return
 	}
 

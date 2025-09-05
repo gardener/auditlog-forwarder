@@ -42,13 +42,17 @@ generate:
 check-generate:
 	@bash $(GARDENER_HACK_DIR)/check-generate.sh $(REPO_ROOT)
 
+.PHONY: tidy
+tidy:
+	@go mod tidy
+
 .PHONY: sast
-sast: tidy $(GOSEC)
-	@$(HACK_DIR)/sast.sh
+sast: $(GOSEC)
+	@bash $(GARDENER_HACK_DIR)/sast.sh
 
 .PHONY: sast-report
-sast-report: tidy $(GOSEC)
-	@$(HACK_DIR)/sast.sh --gosec-report true
+sast-report: $(GOSEC)
+	@bash $(GARDENER_HACK_DIR)/sast.sh --gosec-report true
 
 .PHONY: test-cov
 test-cov:
