@@ -32,6 +32,8 @@ type AuditlogForwarderConfiguration struct {
 	Log LogConfiguration `json:"log"`
 	// Server contains the server configuration for the audit log forwarder.
 	Server ServerConfiguration `json:"server"`
+	// Backends contains the list of backends to forward audit logs to.
+	Backends []Backend `json:"backends"`
 }
 
 // LogConfiguration defines the logging configuration for the audit log forwarder.
@@ -63,4 +65,33 @@ type TLSConfig struct {
 	CertFile string `json:"certFile"`
 	// KeyFile is the file containing the x509 private key matching the certificate.
 	KeyFile string `json:"keyFile"`
+}
+
+// Backend defines a backend to forward audit logs to.
+type Backend struct {
+	// HTTP contains the HTTP backend configuration.
+	// +optional
+	HTTP *HTTPBackend `json:"http,omitempty"`
+}
+
+// HTTPBackend defines the configuration for an HTTP backend.
+type HTTPBackend struct {
+	// URL is the endpoint URL to send audit logs to.
+	URL string `json:"url"`
+	// TLS contains the TLS configuration for client.
+	// +optional
+	TLS *ClientTLSConfig `json:"tls,omitempty"`
+}
+
+// ClientTLSConfig defines the TLS configuration for client.
+type ClientTLSConfig struct {
+	// CAFile is the file containing the Certificate Authority to verify the server certificate.
+	// +optional
+	CAFile string `json:"caFile,omitempty"`
+	// CertFile is the file containing the client certificate for mutual TLS.
+	// +optional
+	CertFile string `json:"certFile,omitempty"`
+	// KeyFile is the file containing the client private key for mutual TLS.
+	// +optional
+	KeyFile string `json:"keyFile,omitempty"`
 }

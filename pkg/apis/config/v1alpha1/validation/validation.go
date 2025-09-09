@@ -5,6 +5,7 @@
 package validation
 
 import (
+	"net/url"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -31,6 +32,7 @@ func ValidateAuditlogForwarderConfiguration(cfg *configv1alpha1.AuditlogForwarde
 
 	allErrs = append(allErrs, validateLogConfiguration(&cfg.Log, field.NewPath("log"))...)
 	allErrs = append(allErrs, validateServerConfig(&cfg.Server, field.NewPath("server"))...)
+	allErrs = append(allErrs, validateBackends(cfg.Backends, field.NewPath("backends"))...)
 
 	return allErrs
 }
@@ -77,6 +79,112 @@ func validateTLSConfig(tlsConfig *configv1alpha1.TLSConfig, fldPath *field.Path)
 
 	if strings.TrimSpace(tlsConfig.KeyFile) == "" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("keyFile"), "TLS private key file is required"))
+	}
+
+	return allErrs
+}
+
+// validateBackends validates the backends configuration.
+func validateBackends(backends []configv1alpha1.Backend, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if len(backends) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath, "at least one backend must be configured"))
+		return allErrs
+	}
+
+	// TODO: remove this limitation in the future
+	if len(backends) != 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath, len(backends), "exactly one backend must be configured"))
+		return allErrs
+	}
+
+	for i, backend := range backends {
+		backendPath := fldPath.Index(i)
+		allErrs = append(allErrs, validateBackend(&backend, backendPath)...)
+	}
+
+	return allErrs
+}
+
+// validateBackend validates a single backend configuration.
+func validateBackend(backend *configv1alpha1.Backend, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Count the number of backend types configured
+	backendTypes := 0
+	if backend.HTTP != nil {
+		backendTypes++
+	}
+
+	if backendTypes == 0 {
+		allErrs = append(allErrs, field.Required(fldPath, "backend type must be specified (currently only 'http' is supported)"))
+		return allErrs
+	}
+
+	if backendTypes > 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath, backendTypes, "exactly one backend type must be specified"))
+		return allErrs
+	}
+
+	if backend.HTTP != nil {
+		allErrs = append(allErrs, validateHTTPBackend(backend.HTTP, fldPath.Child("http"))...)
+	}
+
+	return allErrs
+}
+
+// validateHTTPBackend validates the HTTP backend configuration.
+func validateHTTPBackend(httpBackend *configv1alpha1.HTTPBackend, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	urlValue := strings.TrimSpace(httpBackend.URL)
+	if urlValue == "" {
+		allErrs = append(allErrs, field.Required(fldPath.Child("url"), "URL is required for HTTP backend"))
+	} else {
+		// Validate URL format
+		if backendURL, err := url.Parse(urlValue); err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "invalid URL format"))
+		} else {
+			if backendURL.Scheme != "https" {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL scheme must be 'https'"))
+			}
+
+			if backendURL.RawQuery != "" {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL must not contain query parameters"))
+			}
+
+			if backendURL.Fragment != "" {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL must not contain fragments"))
+			}
+
+			if backendURL.User != nil {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL must not contain user information"))
+			}
+		}
+	}
+
+	if httpBackend.TLS != nil {
+		allErrs = append(allErrs, validateClientTLSConfig(httpBackend.TLS, fldPath.Child("tls"))...)
+	}
+
+	return allErrs
+}
+
+// validateClientTLSConfig validates the client TLS configuration.
+func validateClientTLSConfig(tlsConfig *configv1alpha1.ClientTLSConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Both certFile and keyFile must be specified together for client authentication
+	certFileSpecified := strings.TrimSpace(tlsConfig.CertFile) != ""
+	keyFileSpecified := strings.TrimSpace(tlsConfig.KeyFile) != ""
+
+	if certFileSpecified && !keyFileSpecified {
+		allErrs = append(allErrs, field.Required(fldPath.Child("keyFile"), "keyFile is required when certFile is specified"))
+	}
+
+	if !certFileSpecified && keyFileSpecified {
+		allErrs = append(allErrs, field.Required(fldPath.Child("certFile"), "certFile is required when keyFile is specified"))
 	}
 
 	return allErrs

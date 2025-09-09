@@ -12,3 +12,11 @@ server:
   tls:
     certFile: "/etc/certs/tls.crt"
     keyFile: "/etc/certs/tls.key"
+
+backends:
+- http:
+    url: https://example.com/v1/logs
+    tls:
+      caFile: /etc/ssl/certs/ca-certificates.crt
+      certFile: /etc/certs/client-cert.pem # optional - used for mutual TLS
+      keyFile: /etc/certs/client-key.pem # optional - used for mutual TLS
