@@ -7,6 +7,7 @@ package validation_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
@@ -51,9 +52,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Server.Port = 0
 
 			errs := ValidateAuditlogForwarderConfiguration(config)
-			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-			Expect(errs[0].Field).To(Equal("server.port"))
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeRequired),
+				"Field": Equal("server.port"),
+			}))))
 		})
 	})
 
@@ -62,9 +64,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Server.TLS.CertFile = ""
 
 			errs := ValidateAuditlogForwarderConfiguration(config)
-			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-			Expect(errs[0].Field).To(Equal("server.tls.certFile"))
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeRequired),
+				"Field": Equal("server.tls.certFile"),
+			}))))
 		})
 	})
 
@@ -73,9 +76,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Server.TLS.KeyFile = ""
 
 			errs := ValidateAuditlogForwarderConfiguration(config)
-			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-			Expect(errs[0].Field).To(Equal("server.tls.keyFile"))
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeRequired),
+				"Field": Equal("server.tls.keyFile"),
+			}))))
 		})
 	})
 
@@ -85,7 +89,16 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Server.TLS.KeyFile = ""
 
 			errs := ValidateAuditlogForwarderConfiguration(config)
-			Expect(errs).To(HaveLen(2))
+			Expect(errs).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("server.tls.certFile"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("server.tls.keyFile"),
+				})),
+			))
 		})
 	})
 
@@ -94,9 +107,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Log.Level = "invalid"
 
 			errs := ValidateAuditlogForwarderConfiguration(config)
-			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Type).To(Equal(field.ErrorTypeNotSupported))
-			Expect(errs[0].Field).To(Equal("log.level"))
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeNotSupported),
+				"Field": Equal("log.level"),
+			}))))
 		})
 	})
 
@@ -105,9 +119,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Log.Format = "invalid"
 
 			errs := ValidateAuditlogForwarderConfiguration(config)
-			Expect(errs).To(HaveLen(1))
-			Expect(errs[0].Type).To(Equal(field.ErrorTypeNotSupported))
-			Expect(errs[0].Field).To(Equal("log.format"))
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeNotSupported),
+				"Field": Equal("log.format"),
+			}))))
 		})
 	})
 
@@ -126,9 +141,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends = []configv1alpha1.Backend{}
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-				Expect(errs[0].Field).To(Equal("backends"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("backends"),
+				}))))
 			})
 		})
 
@@ -148,9 +164,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				}
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeInvalid))
-				Expect(errs[0].Field).To(Equal("backends"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("backends"),
+				}))))
 			})
 		})
 
@@ -163,9 +180,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				}
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-				Expect(errs[0].Field).To(Equal("backends[0]"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("backends[0]"),
+				}))))
 			})
 		})
 
@@ -174,9 +192,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends[0].HTTP.URL = ""
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-				Expect(errs[0].Field).To(Equal("backends[0].http.url"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("backends[0].http.url"),
+				}))))
 			})
 		})
 
@@ -185,9 +204,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends[0].HTTP.URL = "://invalid-url"
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeInvalid))
-				Expect(errs[0].Field).To(Equal("backends[0].http.url"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("backends[0].http.url"),
+				}))))
 			})
 		})
 
@@ -196,10 +216,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends[0].HTTP.URL = "http://example.com/audit"
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeInvalid))
-				Expect(errs[0].Field).To(Equal("backends[0].http.url"))
-				Expect(errs[0].Detail).To(ContainSubstring("URL scheme must be 'https'"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("backends[0].http.url"),
+					"Detail": ContainSubstring("URL scheme must be 'https'"),
+				}))))
 			})
 		})
 
@@ -208,10 +229,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends[0].HTTP.URL = "https://example.com/audit?param=value"
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeInvalid))
-				Expect(errs[0].Field).To(Equal("backends[0].http.url"))
-				Expect(errs[0].Detail).To(ContainSubstring("URL must not contain query parameters"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("backends[0].http.url"),
+					"Detail": ContainSubstring("URL must not contain query parameters"),
+				}))))
 			})
 		})
 
@@ -220,10 +242,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends[0].HTTP.URL = "https://example.com/audit#fragment"
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeInvalid))
-				Expect(errs[0].Field).To(Equal("backends[0].http.url"))
-				Expect(errs[0].Detail).To(ContainSubstring("URL must not contain fragments"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("backends[0].http.url"),
+					"Detail": ContainSubstring("URL must not contain fragments"),
+				}))))
 			})
 		})
 
@@ -232,10 +255,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				config.Backends[0].HTTP.URL = "https://user:pass@example.com/audit"
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeInvalid))
-				Expect(errs[0].Field).To(Equal("backends[0].http.url"))
-				Expect(errs[0].Detail).To(ContainSubstring("URL must not contain user information"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("backends[0].http.url"),
+					"Detail": ContainSubstring("URL must not contain user information"),
+				}))))
 			})
 		})
 
@@ -256,12 +280,14 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLSConfig{
 					CertFile: "/path/to/client-cert.pem",
+					// KeyFile is missing
 				}
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-				Expect(errs[0].Field).To(Equal("backends[0].http.tls.keyFile"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("backends[0].http.tls.keyFile"),
+				}))))
 			})
 		})
 
@@ -272,9 +298,10 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				}
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
-				Expect(errs).To(HaveLen(1))
-				Expect(errs[0].Type).To(Equal(field.ErrorTypeRequired))
-				Expect(errs[0].Field).To(Equal("backends[0].http.tls.certFile"))
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("backends[0].http.tls.certFile"),
+				}))))
 			})
 		})
 
