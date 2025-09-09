@@ -15,5 +15,5 @@ spec:
   ports:
   - port: 443
     protocol: TCP
-    targetPort: 10443
+    targetPort: {{ .Values.config.server.port }}
     nodePort: 30021

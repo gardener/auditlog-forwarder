@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auditlog-forwarder-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: auditlog-forwarder
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  config.yaml: |
+    apiVersion: config.auditlog-forwarder.gardener.cloud/v1alpha1
+    kind: AuditlogForwarderConfiguration
+    
+    log:
+      level: {{ .Values.config.log.level }}
+      format: {{ .Values.config.log.format }}
+    
+    server:
+      port: {{ .Values.config.server.port }}
+      address: {{ .Values.config.server.address }}
+      tls:
+        certFile: /tls/tls.crt
+        keyFile: /tls/tls.key

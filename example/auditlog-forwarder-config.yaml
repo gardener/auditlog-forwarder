@@ -1,0 +1,14 @@
+apiVersion: config.auditlog-forwarder.gardener.cloud/v1alpha1
+kind: AuditlogForwarderConfiguration
+
+log:
+  level: info
+  format: json
+
+server:
+  port: 10443
+  address: ""
+  
+  tls:
+    certFile: "/etc/certs/tls.crt"
+    keyFile: "/etc/certs/tls.key"

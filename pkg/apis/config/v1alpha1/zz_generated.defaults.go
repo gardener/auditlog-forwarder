@@ -25,4 +25,6 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 
 func SetObjectDefaults_AuditlogForwarderConfiguration(in *AuditlogForwarderConfiguration) {
 	SetDefaults_AuditlogForwarderConfiguration(in)
+	SetDefaults_LogConfiguration(&in.Log)
+	SetDefaults_ServerConfiguration(&in.Server)
 }

@@ -25,17 +25,20 @@ spec:
         image: {{ include "image" .Values.image }}
         imagePullPolicy: IfNotPresent
         args:
-        - --port=10443
-        - --tls-cert-file=/tls/tls.crt
-        - --tls-private-key-file=/tls/tls.key
+        - --config=/config/config.yaml
         ports:
         - name: port
-          containerPort: 10443
+          containerPort: {{ .Values.config.server.port }}
           protocol: TCP
         volumeMounts:
         - name: tls
           mountPath: /tls
+        - name: config
+          mountPath: /config
       volumes:
       - name: tls
         secret:
           secretName: auditlog-forwarder-tls
+      - name: config
+        configMap:
+          name: auditlog-forwarder-config

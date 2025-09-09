@@ -8,63 +8,31 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+	"os"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
+	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
+	"github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1/validation"
 )
+
+var configDecoder runtime.Decoder
+
+func init() {
+	configScheme := runtime.NewScheme()
+	utilruntime.Must(configv1alpha1.AddToScheme(configScheme))
+	configDecoder = serializer.NewCodecFactory(configScheme).UniversalDecoder()
+}
 
 // Options contain the server options.
 type Options struct {
-	ServingOptions ServingOptions
-}
-
-// ServingOptions are options applied to the authentication webhook server.
-type ServingOptions struct {
-	TLSCertFile string
-	TLSKeyFile  string
-
-	Address string
-	Port    uint
-}
-
-// AddFlags adds server options to flagset
-func (s *ServingOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&s.TLSCertFile, "tls-cert-file", s.TLSCertFile, "File containing the x509 Certificate for HTTPS.")
-	fs.StringVar(&s.TLSKeyFile, "tls-private-key-file", s.TLSKeyFile, "File containing the x509 private key matching --tls-cert-file.")
-
-	fs.StringVar(&s.Address, "address", "", "The IP address that the server will listen on. If unspecified all interfaces will be used.")
-	fs.UintVar(&s.Port, "port", 10443, "The port that the server will listen on.")
-}
-
-// Validate validates the serving options.
-func (s *ServingOptions) Validate() []error {
-	errs := []error{}
-	if strings.TrimSpace(s.TLSCertFile) == "" {
-		errs = append(errs, errors.New("--tls-cert-file is required"))
-	}
-
-	if strings.TrimSpace(s.TLSKeyFile) == "" {
-		errs = append(errs, errors.New("--tls-private-key-file is required"))
-	}
-
-	return errs
-}
-
-// ApplyTo applies the serving options to the authentication server configuration.
-func (s *ServingOptions) ApplyTo(c *Serving) error {
-	c.Address = fmt.Sprintf("%s:%s", s.Address, strconv.FormatUint(uint64(s.Port), 10))
-	serverCert, err := tls.LoadX509KeyPair(s.TLSCertFile, s.TLSKeyFile)
-	if err != nil {
-		return fmt.Errorf("failed to parse server certificates: %w", err)
-	}
-
-	c.TLSConfig = &tls.Config{
-		Certificates: []tls.Certificate{serverCert},
-		MinVersion:   tls.VersionTLS12,
-	}
-
-	return nil
+	ConfigFile string
+	Config     *configv1alpha1.AuditlogForwarderConfiguration
 }
 
 // NewOptions return options with default values.
@@ -75,21 +43,66 @@ func NewOptions() *Options {
 
 // AddFlags adds server options to flagset
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	o.ServingOptions.AddFlags(fs)
+	fs.StringVar(&o.ConfigFile, "config", o.ConfigFile, "Path to configuration file.")
+}
+
+// Complete loads the configuration from file and applies defaults.
+func (o *Options) Complete() error {
+	if len(o.ConfigFile) == 0 {
+		return errors.New("missing config file")
+	}
+
+	data, err := os.ReadFile(o.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("error reading config file: %w", err)
+	}
+
+	o.Config = &configv1alpha1.AuditlogForwarderConfiguration{}
+	if err = runtime.DecodeInto(configDecoder, data, o.Config); err != nil {
+		return fmt.Errorf("error decoding config: %w", err)
+	}
+
+	return nil
+}
+
+// Validate validates the configuration.
+func (o *Options) Validate() error {
+	if errs := validation.ValidateAuditlogForwarderConfiguration(o.Config); len(errs) > 0 {
+		return errs.ToAggregate()
+	}
+	return nil
+}
+
+// LogConfig returns the log level and format from the configuration.
+func (o *Options) LogConfig() (string, string) {
+	return o.Config.Log.Level, o.Config.Log.Format
 }
 
 // ApplyTo applies the options to the config.
 func (o *Options) ApplyTo(server *Config) error {
-	if err := o.ServingOptions.ApplyTo(&server.Serving); err != nil {
+	if err := o.applyServerConfigToServing(&server.Serving); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Validate checks if options are valid
-func (o *Options) Validate() []error {
-	return o.ServingOptions.Validate()
+// applyServerConfigToServing applies server configuration to serving config
+func (o *Options) applyServerConfigToServing(serving *Serving) error {
+	serverConfig := o.Config.Server
+	serving.Address = net.JoinHostPort(serverConfig.Address, strconv.FormatUint(uint64(serverConfig.Port), 10))
+
+	serverCert, err := tls.LoadX509KeyPair(serverConfig.TLS.CertFile, serverConfig.TLS.KeyFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse server certificates: %w", err)
+	}
+
+	serving.TLSConfig = &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
+	return nil
 }
 
 // Config has all the context to run an auditlog forwarder.

@@ -80,7 +80,7 @@ kind-up: $(KIND) $(KUBECTL) $(YQ)
 kind-down: $(KIND)
 	@bash $(HACK_DIR)/kind-down.sh
 
-server-up: export LD_FLAGS = $(shell $(REPO_ROOT)/hack/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION auditlog-forwarder $(BUILD_DATE))
+server-up: export LD_FLAGS = $(shell $(GARDENER_HACK_DIR)/hack/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION auditlog-forwarder $(BUILD_DATE))
 
 .PHONY: server-up
 server-up: $(SKAFFOLD) $(HELM) $(KUBECTL)

@@ -17,12 +17,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/component-base/version"
 	"k8s.io/component-base/version/verflag"
 
 	"github.com/gardener/auditlog-forwarder/cmd/auditlog-forwarder/app/options"
 	"github.com/gardener/auditlog-forwarder/internal/handler/audit"
+	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
 // AppName is the name of the application.
@@ -31,19 +31,27 @@ const AppName = "auditlog-forwarder"
 // NewCommand is the root command for the auditlog forwarder.
 func NewCommand() *cobra.Command {
 	opt := options.NewOptions()
-	conf := &options.Config{}
 
 	cmd := &cobra.Command{
 		Use: AppName,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
-			log := logr.FromSlogHandler(handler)
+			if err := opt.Complete(); err != nil {
+				return fmt.Errorf("cannot complete options: %w", err)
+			}
+
+			if err := opt.Validate(); err != nil {
+				return fmt.Errorf("cannot validate options: %w", err)
+			}
+
+			level, format := opt.LogConfig()
+			log := setupLogging(level, format)
 
 			log.Info("Starting application", "app", AppName, "version", version.Get())
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
 				log.Info("Flag", "name", flag.Name, "value", flag.Value, "default", flag.DefValue)
 			})
 
+			conf := &options.Config{}
 			if err := opt.ApplyTo(conf); err != nil {
 				return fmt.Errorf("cannot apply options: %w", err)
 			}
@@ -52,7 +60,7 @@ func NewCommand() *cobra.Command {
 		},
 		PreRunE: func(_ *cobra.Command, _ []string) error {
 			verflag.PrintAndExitIfRequested()
-			return utilerrors.NewAggregate(opt.Validate())
+			return nil
 		},
 	}
 
@@ -112,4 +120,29 @@ func runServer(ctx context.Context, log logr.Logger, srv *http.Server) error {
 		log.Info("Shutdown successful")
 		return nil
 	}
+}
+
+// setupLogging configures logging based on the level and format from configuration.
+func setupLogging(level, format string) logr.Logger {
+	var slogLevel slog.Level
+	switch level {
+	case configv1alpha1.LogLevelDebug:
+		slogLevel = slog.LevelDebug
+	case configv1alpha1.LogLevelError:
+		slogLevel = slog.LevelError
+	default:
+		slogLevel = slog.LevelInfo
+	}
+
+	var handler slog.Handler
+	handlerOptions := &slog.HandlerOptions{Level: slogLevel}
+
+	switch format {
+	case configv1alpha1.LogFormatText:
+		handler = slog.NewTextHandler(os.Stdout, handlerOptions)
+	default:
+		handler = slog.NewJSONHandler(os.Stdout, handlerOptions)
+	}
+
+	return logr.FromSlogHandler(handler)
 }

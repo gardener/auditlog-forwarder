@@ -11,3 +11,12 @@ tls:
 image:
   repository: local-skaffold/auditlog-forwarder
   tag: latest
+
+config:
+  log:
+    level: info
+    format: json
+
+  server:
+    port: 10443
+    address: ""
