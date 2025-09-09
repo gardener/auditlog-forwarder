@@ -16,3 +16,6 @@ You can now target the KinD cluster.
 ```bash
 export KUBECONFIG=$(pwd)/dev/local/kind/kubeconfig
 ```
+
+This setup will deploy both the auditlog-forwarder and the echo-server in the `kube-system` namespace.
+The echo-server acts as a dummy backend that receives and logs the enriched audit events forwarded by the auditlog-forwarder.

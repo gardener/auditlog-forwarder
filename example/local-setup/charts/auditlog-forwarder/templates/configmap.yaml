@@ -22,3 +22,13 @@ data:
       tls:
         certFile: /tls/tls.crt
         keyFile: /tls/tls.key
+    
+    backends:
+    - http:
+        url: https://echo-server.kube-system.svc.cluster.local:443/audit
+        tls:
+          caFile: /ca/ca.crt
+    
+    injectAnnotations:
+      environment: local-kind
+      deployment: auditlog-forwarder-test

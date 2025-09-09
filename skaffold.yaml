@@ -16,6 +16,15 @@ build:
         ldflags:
           - '{{.LD_FLAGS}}'
         main: ./cmd/auditlog-forwarder
+    - image: local-skaffold/echo-server
+      ko:
+        dependencies:
+          paths:
+            - cmd/echo-server
+            - VERSION
+        ldflags:
+          - '{{.LD_FLAGS}}'
+        main: ./cmd/echo-server
   tagPolicy:
     customTemplate:
       template: '{{.version}}-{{.sha}}'
@@ -37,5 +46,19 @@ deploy:
         setFiles:
           tls.crt: dev/local/certs/tls.crt
           tls.key: dev/local/certs/tls.key
+          ca.crt: dev/local/certs/ca.crt
+        createNamespace: false
+        wait: true
+      - name: echo-server
+        chartPath: example/local-setup/charts/echo-server
+        valuesFiles:
+          - example/local-setup/charts/echo-server/values.yaml
+        namespace: kube-system
+        setValueTemplates:
+          image.repository: '{{.IMAGE_REPO_local_skaffold_echo_server}}'
+          image.tag: '{{.IMAGE_TAG_local_skaffold_echo_server}}@{{.IMAGE_DIGEST_local_skaffold_echo_server}}'
+        setFiles:
+          tls.crt: dev/local/certs/echo-server-tls.crt
+          tls.key: dev/local/certs/echo-server-tls.key
         createNamespace: false
         wait: true

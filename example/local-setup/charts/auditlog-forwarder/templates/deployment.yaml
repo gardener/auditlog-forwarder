@@ -35,6 +35,9 @@ spec:
           mountPath: /tls
         - name: config
           mountPath: /config
+        - name: ca
+          mountPath: /ca
+          readOnly: true
       volumes:
       - name: tls
         secret:
@@ -42,3 +45,6 @@ spec:
       - name: config
         configMap:
           name: auditlog-forwarder-config
+      - name: ca
+        secret:
+          secretName: auditlog-forwarder-ca

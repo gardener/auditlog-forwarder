@@ -18,7 +18,28 @@ if [[ -s "$cert_dir/tls.key" ]]; then
     exit 0
 fi
 
-echo "Generating development certificate..."
+echo "Generating Certificate Authority (CA)..."
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -days 365 \
-  -nodes -keyout "$cert_dir/tls.key" -out "$cert_dir/tls.crt" \
+  -nodes -keyout "$cert_dir/ca.key" -out "$cert_dir/ca.crt" \
+  -subj "/CN=Local Development CA"
+
+echo "Generating development certificate for auditlog-forwarder..."
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -keyout "$cert_dir/tls.key" -out "$cert_dir/tls.csr" \
   -subj "/CN=auditlog-forwarder" -addext "subjectAltName=DNS:localhost,DNS:auditlog-forwarder,DNS:auditlog-forwarder.kube-system,DNS:auditlog-forwarder.kube-system.svc,DNS:auditlog-forwarder.kube-system.svc.cluster.local,IP:127.0.0.1"
+
+openssl x509 -req -in "$cert_dir/tls.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" -CAcreateserial \
+  -out "$cert_dir/tls.crt" -days 365 \
+  -extensions v3_req -extfile <(echo "[v3_req]"; echo "subjectAltName=DNS:localhost,DNS:auditlog-forwarder,DNS:auditlog-forwarder.kube-system,DNS:auditlog-forwarder.kube-system.svc,DNS:auditlog-forwarder.kube-system.svc.cluster.local,IP:127.0.0.1")
+
+echo "Generating development certificate for echo-server..."
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -keyout "$cert_dir/echo-server-tls.key" -out "$cert_dir/echo-server-tls.csr" \
+  -subj "/CN=echo-server" -addext "subjectAltName=DNS:localhost,DNS:echo-server,DNS:echo-server.kube-system,DNS:echo-server.kube-system.svc,DNS:echo-server.kube-system.svc.cluster.local,IP:127.0.0.1"
+
+openssl x509 -req -in "$cert_dir/echo-server-tls.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" -CAcreateserial \
+  -out "$cert_dir/echo-server-tls.crt" -days 365 \
+  -extensions v3_req -extfile <(echo "[v3_req]"; echo "subjectAltName=DNS:localhost,DNS:echo-server,DNS:echo-server.kube-system,DNS:echo-server.kube-system.svc,DNS:echo-server.kube-system.svc.cluster.local,IP:127.0.0.1")
+
+# Clean up CSR files
+rm -f "$cert_dir/tls.csr" "$cert_dir/echo-server-tls.csr"
