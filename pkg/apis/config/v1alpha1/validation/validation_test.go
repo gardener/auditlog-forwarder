@@ -5,6 +5,8 @@
 package validation_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -36,6 +38,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 						URL: "https://example.com/audit",
 					},
 				},
+			},
+			InjectAnnotations: map[string]string{
+				"shoot.gardener.cloud/id":        "test-id",
+				"shoot.gardener.cloud/name":      "test-shoot",
+				"shoot.gardener.cloud/namespace": "garden-test",
 			},
 		}
 	})
@@ -313,6 +320,133 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 				errs := ValidateAuditlogForwarderConfiguration(config)
 				Expect(errs).To(BeEmpty())
+			})
+		})
+	})
+
+	Context("inject annotations validation", func() {
+		Context("when annotations are valid", func() {
+			It("should return no errors", func() {
+				config.InjectAnnotations = map[string]string{
+					"shoot.gardener.cloud/id":        "test-id",
+					"shoot.gardener.cloud/name":      "test-shoot",
+					"shoot.gardener.cloud/namespace": "garden-test",
+					"custom.domain.io/annotation":    "custom-value",
+				}
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(BeEmpty())
+			})
+		})
+
+		Context("when no annotations are provided", func() {
+			It("should return no errors", func() {
+				config.InjectAnnotations = nil
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(BeEmpty())
+			})
+		})
+
+		Context("when annotation key is empty", func() {
+			It("should return an error", func() {
+				config.InjectAnnotations = map[string]string{
+					"": "some-value",
+				}
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("injectAnnotations"),
+						"Detail": Equal("name part must be non-empty"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("injectAnnotations"),
+						"Detail": ContainSubstring("name part must consist of alphanumeric characters"),
+					})),
+				))
+			})
+		})
+
+		Context("when annotation value is empty", func() {
+			It("should return an error", func() {
+				config.InjectAnnotations = map[string]string{
+					"valid.key": "",
+				}
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("injectAnnotations[valid.key]"),
+				}))))
+			})
+		})
+
+		Context("when annotation key contains invalid characters", func() {
+			It("should return an error", func() {
+				config.InjectAnnotations = map[string]string{
+					"invalid@key": "value",
+				}
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("injectAnnotations"),
+					"Detail": ContainSubstring("name part must consist of alphanumeric characters"),
+				}))))
+			})
+		})
+
+		Context("when annotation key is too long", func() {
+			It("should return an error", func() {
+				longKey := strings.Repeat("a", 64) // 64 characters, exceeds 63 limit for name part
+				config.InjectAnnotations = map[string]string{
+					longKey: "value",
+				}
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("injectAnnotations"),
+					"Detail": Equal("name part must be no more than 63 characters"),
+				}))))
+			})
+		})
+
+		Context("when multiple annotation validation errors exist", func() {
+			It("should return all errors", func() {
+				config.InjectAnnotations = map[string]string{
+					"":            "empty-key",
+					"valid.key":   "",
+					"invalid@key": "invalid-char",
+				}
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(HaveLen(4))
+				Expect(errs).To(ContainElements(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("injectAnnotations"),
+						"Detail": Equal("name part must be non-empty"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("injectAnnotations"),
+						"Detail": ContainSubstring("name part must consist of alphanumeric characters"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeRequired),
+						"Field":  Equal("injectAnnotations[valid.key]"),
+						"Detail": Equal("annotation value cannot be empty"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("injectAnnotations"),
+						"Detail": ContainSubstring("name part must consist of alphanumeric characters"),
+					})),
+				))
 			})
 		})
 	})

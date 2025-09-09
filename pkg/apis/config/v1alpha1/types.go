@@ -34,6 +34,9 @@ type AuditlogForwarderConfiguration struct {
 	Server ServerConfiguration `json:"server"`
 	// Backends contains the list of backends to forward audit logs to.
 	Backends []Backend `json:"backends"`
+	// InjectAnnotations contains annotations to be injected into audit events.
+	// +optional
+	InjectAnnotations map[string]string `json:"injectAnnotations,omitempty"`
 }
 
 // LogConfiguration defines the logging configuration for the audit log forwarder.

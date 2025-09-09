@@ -73,7 +73,7 @@ func NewCommand() *cobra.Command {
 }
 
 func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
-	auditHandler, err := audit.NewHandler(log, map[string]string{"foo": "bar"})
+	auditHandler, err := audit.NewHandler(log, conf.InjectAnnotations)
 	if err != nil {
 		return fmt.Errorf("failed to create audit handler: %w", err)
 	}

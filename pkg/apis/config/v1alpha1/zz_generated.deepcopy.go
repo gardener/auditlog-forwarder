@@ -26,6 +26,13 @@ func (in *AuditlogForwarderConfiguration) DeepCopyInto(out *AuditlogForwarderCon
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.InjectAnnotations != nil {
+		in, out := &in.InjectAnnotations, &out.InjectAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

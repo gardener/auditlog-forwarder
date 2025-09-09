@@ -20,3 +20,8 @@ backends:
       caFile: /etc/ssl/certs/ca-certificates.crt
       certFile: /etc/certs/client-cert.pem # optional - used for mutual TLS
       keyFile: /etc/certs/client-key.pem # optional - used for mutual TLS
+
+injectAnnotations:
+  shoot.gardener.cloud/id: id
+  shoot.gardener.cloud/name: foo
+  shoot.gardener.cloud/namespace: garden-example

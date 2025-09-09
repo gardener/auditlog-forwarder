@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -33,6 +34,7 @@ func ValidateAuditlogForwarderConfiguration(cfg *configv1alpha1.AuditlogForwarde
 	allErrs = append(allErrs, validateLogConfiguration(&cfg.Log, field.NewPath("log"))...)
 	allErrs = append(allErrs, validateServerConfig(&cfg.Server, field.NewPath("server"))...)
 	allErrs = append(allErrs, validateBackends(cfg.Backends, field.NewPath("backends"))...)
+	allErrs = append(allErrs, validateInjectAnnotations(cfg.InjectAnnotations, field.NewPath("injectAnnotations"))...)
 
 	return allErrs
 }
@@ -185,6 +187,22 @@ func validateClientTLSConfig(tlsConfig *configv1alpha1.ClientTLSConfig, fldPath 
 
 	if !certFileSpecified && keyFileSpecified {
 		allErrs = append(allErrs, field.Required(fldPath.Child("certFile"), "certFile is required when keyFile is specified"))
+	}
+
+	return allErrs
+}
+
+// validateInjectAnnotations validates the inject annotations configuration.
+func validateInjectAnnotations(annotations map[string]string, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, apivalidation.ValidateAnnotations(annotations, fldPath)...)
+
+	for key, value := range annotations {
+		if strings.TrimSpace(value) == "" {
+			keyPath := fldPath.Key(key)
+			allErrs = append(allErrs, field.Required(keyPath, "annotation value cannot be empty"))
+		}
 	}
 
 	return allErrs

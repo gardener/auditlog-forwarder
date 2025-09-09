@@ -84,6 +84,8 @@ func (o *Options) ApplyTo(server *Config) error {
 		return err
 	}
 
+	server.InjectAnnotations = o.Config.InjectAnnotations
+
 	return nil
 }
 
@@ -107,7 +109,8 @@ func (o *Options) applyServerConfigToServing(serving *Serving) error {
 
 // Config has all the context to run an auditlog forwarder.
 type Config struct {
-	Serving Serving
+	Serving           Serving
+	InjectAnnotations map[string]string
 }
 
 // Serving contains the configuration for the auditlog forwarder.
