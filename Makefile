@@ -4,15 +4,28 @@
 
 ENSURE_GARDENER_MOD    := $(shell go get github.com/gardener/gardener@$$(go list -m -f "{{.Version}}" github.com/gardener/gardener))
 GARDENER_HACK_DIR      := $(shell go list -m -f "{{.Dir}}" github.com/gardener/gardener)/hack
+NAME                   := auditlog-forwarder
+IMAGE                  := europe-docker.pkg.dev/gardener-project/public/gardener/$(NAME)
 REPO_ROOT              := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 HACK_DIR               := $(REPO_ROOT)/hack
 VERSION                := $(shell cat "$(REPO_ROOT)/VERSION")
+GOARCH                 ?= $(shell go env GOARCH)
 EFFECTIVE_VERSION      := $(VERSION)-$(shell git rev-parse HEAD)
 LD_FLAGS               := "-w $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION $(NAME))"
 KIND_LOCAL_KUBECONFIG  := $(REPO_ROOT)/dev/local/kind/kubeconfig
 
 TOOLS_DIR := $(REPO_ROOT)/hack/tools
 include $(GARDENER_HACK_DIR)/tools.mk
+
+.PHONY: install
+install:
+	@LD_FLAGS=$(LD_FLAGS) EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
+		bash $(GARDENER_HACK_DIR)/install.sh ./...
+
+.PHONY: docker-images
+docker-images:
+	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) --build-arg TARGETARCH=$(GOARCH) -t $(IMAGE):$(EFFECTIVE_VERSION) -t $(IMAGE):latest -f Dockerfile -m 6g --target $(NAME) .
+
 
 .PHONY: format
 format: $(GOIMPORTS) $(GOIMPORTSREVISER)

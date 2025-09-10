@@ -9,7 +9,8 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -a -ldflags="$(/workspace/hack/get-build-ld-flags.sh)" -o auditlog-forwarder cmd/auditlog-forwarder/main.go
+ARG EFFECTIVE_VERSION
+RUN make install EFFECTIVE_VERSION=$EFFECTIVE_VERSION
 
 FROM gcr.io/distroless/static-debian12:nonroot AS auditlog-forwarder
 WORKDIR /
