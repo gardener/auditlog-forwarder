@@ -19,3 +19,19 @@ export KUBECONFIG=$(pwd)/dev/local/kind/kubeconfig
 
 This setup will deploy both the auditlog-forwarder and the echo-server in the `kube-system` namespace.
 The echo-server acts as a dummy backend that receives and logs the enriched audit events forwarded by the auditlog-forwarder.
+
+### 2. Verify setup
+
+Verify that events are successfully processed and sent to configured backends.
+
+```bash
+k -n kube-system logs -l app.kubernetes.io/name=auditlog-forwarder
+```
+
+## Cleanup
+
+To tear down the local environment:
+
+```bash
+make kind-down
+```
