@@ -68,6 +68,10 @@ type TLSConfig struct {
 	CertFile string `json:"certFile"`
 	// KeyFile is the file containing the x509 private key matching the certificate.
 	KeyFile string `json:"keyFile"`
+	// ClientCAFile is the file containing the Certificate Authority to verify client certificates.
+	// If specified, client certificate verification will be enabled with RequireAndVerifyClientCert policy.
+	// +optional
+	ClientCAFile string `json:"clientCAFile,omitempty"`
 }
 
 // Backend defines a backend to forward audit logs to.

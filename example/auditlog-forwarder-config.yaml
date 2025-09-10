@@ -12,6 +12,7 @@ server:
   tls:
     certFile: "/etc/certs/tls.crt"
     keyFile: "/etc/certs/tls.key"
+    # clientCAFile: "/etc/certs/client-ca.crt"
 
 backends:
 - http:

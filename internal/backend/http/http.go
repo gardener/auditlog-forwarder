@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
@@ -101,7 +102,7 @@ func createHTTPClient(tlsConfig *configv1alpha1.ClientTLSConfig) (*http.Client, 
 	}
 
 	if tlsConfig.CAFile != "" {
-		caCert, err := os.ReadFile(tlsConfig.CAFile)
+		caCert, err := os.ReadFile(filepath.Clean(tlsConfig.CAFile))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA certificate file: %w", err)
 		}

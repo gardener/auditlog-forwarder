@@ -83,6 +83,11 @@ func validateTLSConfig(tlsConfig *configv1alpha1.TLSConfig, fldPath *field.Path)
 		allErrs = append(allErrs, field.Required(fldPath.Child("keyFile"), "TLS private key file is required"))
 	}
 
+	// ClientCAFile is optional, but if provided it should not be empty
+	if len(tlsConfig.ClientCAFile) > 0 && strings.TrimSpace(tlsConfig.ClientCAFile) == "" {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("clientCAFile"), tlsConfig.ClientCAFile, "client CA file path cannot be empty when specified"))
+	}
+
 	return allErrs
 }
 

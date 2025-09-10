@@ -142,6 +142,38 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		})
 	})
 
+	Context("client authentication validation", func() {
+		Context("when client CA file is configured correctly", func() {
+			It("should not return errors", func() {
+				config.Server.TLS.ClientCAFile = "/path/to/ca.pem"
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(BeEmpty())
+			})
+		})
+
+		Context("when client CA file is empty but specified", func() {
+			It("should return an error", func() {
+				config.Server.TLS.ClientCAFile = "   "
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("server.tls.clientCAFile"),
+				}))))
+			})
+		})
+
+		Context("when client CA file is not specified", func() {
+			It("should not return errors", func() {
+				config.Server.TLS.ClientCAFile = ""
+
+				errs := ValidateAuditlogForwarderConfiguration(config)
+				Expect(errs).To(BeEmpty())
+			})
+		})
+	})
+
 	Context("backends validation", func() {
 		Context("when no backends are configured", func() {
 			It("should return an error", func() {

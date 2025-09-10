@@ -55,9 +55,9 @@ deploy:
         setFiles:
           tls.crt: dev/local/certs/tls.crt
           tls.key: dev/local/certs/tls.key
-          ca.crt: dev/local/certs/ca.crt
-          tls.clientCrt: dev/local/certs/client.crt
-          tls.clientKey: dev/local/certs/client.key
+          tls.clientCA: dev/local/certs/ca.crt
+          backend.clientCrt: dev/local/certs/client.crt
+          backend.clientKey: dev/local/certs/client.key
         createNamespace: false
         wait: true
       - name: echo-server
@@ -71,6 +71,6 @@ deploy:
         setFiles:
           tls.crt: dev/local/certs/echo-server-tls.crt
           tls.key: dev/local/certs/echo-server-tls.key
-          tls.caCrt: dev/local/certs/ca.crt
+          tls.clientCA: dev/local/certs/ca.crt
         createNamespace: false
         wait: true

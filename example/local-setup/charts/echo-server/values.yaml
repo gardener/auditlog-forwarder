@@ -7,7 +7,7 @@ tls:
     -----BEGIN PRIVATE KEY-----
     MIIE...
     -----END PRIVATE KEY-----
-  caCrt: |
+  clientCA: |
     -----BEGIN CERTIFICATE-----
     MIID...
     -----END CERTIFICATE-----

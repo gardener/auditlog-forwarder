@@ -50,5 +50,14 @@ openssl x509 -req -in "$cert_dir/client.csr" -CA "$cert_dir/ca.crt" -CAkey "$cer
   -out "$cert_dir/client.crt" -days 365 \
   -extensions v3_req -extfile <(echo "[v3_req]"; echo "keyUsage = digitalSignature"; echo "extendedKeyUsage = clientAuth")
 
+echo "Generating client certificate for kube-apiserver..."
+openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -keyout "$cert_dir/kube-apiserver-client.key" -out "$cert_dir/kube-apiserver-client.csr" \
+  -subj "/CN=kube-apiserver-client"
+
+openssl x509 -req -in "$cert_dir/kube-apiserver-client.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" -CAcreateserial \
+  -out "$cert_dir/kube-apiserver-client.crt" -days 365 \
+  -extensions v3_req -extfile <(echo "[v3_req]"; echo "keyUsage = digitalSignature"; echo "extendedKeyUsage = clientAuth")
+
 # Clean up CSR files
-rm -f "$cert_dir/tls.csr" "$cert_dir/echo-server-tls.csr" "$cert_dir/client.csr"
+rm -f "$cert_dir/tls.csr" "$cert_dir/echo-server-tls.csr" "$cert_dir/client.csr" "$cert_dir/kube-apiserver-client.csr"

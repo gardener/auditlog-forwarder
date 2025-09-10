@@ -6,10 +6,12 @@ package options
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/pflag"
@@ -54,7 +56,7 @@ func (o *Options) Complete() error {
 		return errors.New("missing config file")
 	}
 
-	data, err := os.ReadFile(o.ConfigFile)
+	data, err := os.ReadFile(filepath.Clean(o.ConfigFile))
 	if err != nil {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
@@ -107,10 +109,36 @@ func (o *Options) applyServerConfigToServing(serving *Serving) error {
 		return fmt.Errorf("failed to parse server certificates: %w", err)
 	}
 
-	serving.TLSConfig = &tls.Config{
+	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 		MinVersion:   tls.VersionTLS12,
 	}
+
+	// Configure client certificate verification if specified
+	if len(serverConfig.TLS.ClientCAFile) > 0 {
+		if err := o.configureClientAuth(tlsConfig, serverConfig.TLS.ClientCAFile); err != nil {
+			return fmt.Errorf("failed to configure client certificate verification: %w", err)
+		}
+	}
+
+	serving.TLSConfig = tlsConfig
+	return nil
+}
+
+// configureClientAuth configures client certificate authentication for the TLS config.
+func (o *Options) configureClientAuth(tlsConfig *tls.Config, clientCAFile string) error {
+	caCert, err := os.ReadFile(filepath.Clean(clientCAFile))
+	if err != nil {
+		return fmt.Errorf("failed to read CA file: %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return fmt.Errorf("failed to parse CA certificate from %s", clientCAFile)
+	}
+
+	tlsConfig.ClientCAs = caCertPool
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 
 	return nil
 }

@@ -29,3 +29,12 @@ nodes:
   - hostPath: ./example/local-setup/auditlog-forwarder-kubeconfig.yaml
     containerPath: /etc/kubernetes/auditlog-forwarder/kubeconfig.yaml
     readOnly: true
+  - hostPath: ./dev/local/certs/ca.crt
+    containerPath: /etc/kubernetes/auditlog-forwarder/ca.crt
+    readOnly: true
+  - hostPath: ./dev/local/certs/kube-apiserver-client.crt
+    containerPath: /etc/kubernetes/auditlog-forwarder/client.crt
+    readOnly: true
+  - hostPath: ./dev/local/certs/kube-apiserver-client.key
+    containerPath: /etc/kubernetes/auditlog-forwarder/client.key
+    readOnly: true

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -83,7 +84,7 @@ func setupTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
 
 	// If CA file is provided, enable client certificate verification
 	if caFile != "" {
-		caCert, err := os.ReadFile(caFile)
+		caCert, err := os.ReadFile(filepath.Clean(caFile))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA certificate file: %w", err)
 		}
