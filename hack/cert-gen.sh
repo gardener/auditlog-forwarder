@@ -30,7 +30,7 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
 
 openssl x509 -req -in "$cert_dir/tls.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" -CAcreateserial \
   -out "$cert_dir/tls.crt" -days 365 \
-  -extensions v3_req -extfile <(echo "[v3_req]"; echo "subjectAltName=DNS:localhost,DNS:auditlog-forwarder,DNS:auditlog-forwarder.kube-system,DNS:auditlog-forwarder.kube-system.svc,DNS:auditlog-forwarder.kube-system.svc.cluster.local,IP:127.0.0.1")
+  -extensions v3_req -extfile <(echo "[v3_req]"; echo "keyUsage = keyEncipherment, digitalSignature"; echo "extendedKeyUsage = serverAuth"; echo "subjectAltName=DNS:localhost,DNS:auditlog-forwarder,DNS:auditlog-forwarder.kube-system,DNS:auditlog-forwarder.kube-system.svc,DNS:auditlog-forwarder.kube-system.svc.cluster.local,IP:127.0.0.1")
 
 echo "Generating development certificate for echo-server..."
 openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
@@ -39,7 +39,7 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
 
 openssl x509 -req -in "$cert_dir/echo-server-tls.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" -CAcreateserial \
   -out "$cert_dir/echo-server-tls.crt" -days 365 \
-  -extensions v3_req -extfile <(echo "[v3_req]"; echo "subjectAltName=DNS:localhost,DNS:echo-server,DNS:echo-server.kube-system,DNS:echo-server.kube-system.svc,DNS:echo-server.kube-system.svc.cluster.local,IP:127.0.0.1")
+  -extensions v3_req -extfile <(echo "[v3_req]"; echo "keyUsage = keyEncipherment, digitalSignature"; echo "extendedKeyUsage = serverAuth"; echo "subjectAltName=DNS:localhost,DNS:echo-server,DNS:echo-server.kube-system,DNS:echo-server.kube-system.svc,DNS:echo-server.kube-system.svc.cluster.local,IP:127.0.0.1")
 
 echo "Generating client certificate for auditlog-forwarder..."
 openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
@@ -47,7 +47,8 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
   -subj "/CN=auditlog-forwarder-client"
 
 openssl x509 -req -in "$cert_dir/client.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" -CAcreateserial \
-  -out "$cert_dir/client.crt" -days 365
+  -out "$cert_dir/client.crt" -days 365 \
+  -extensions v3_req -extfile <(echo "[v3_req]"; echo "keyUsage = digitalSignature"; echo "extendedKeyUsage = clientAuth")
 
 # Clean up CSR files
 rm -f "$cert_dir/tls.csr" "$cert_dir/echo-server-tls.csr" "$cert_dir/client.csr"
