@@ -18,6 +18,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/gardener/auditlog-forwarder/internal/backend"
+	backendfactory "github.com/gardener/auditlog-forwarder/internal/backend/factory"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 	"github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1/validation"
 )
@@ -87,7 +88,7 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
-	backends, err := backend.NewFromConfigs(o.Config.Backends)
+	backends, err := backendfactory.NewFromConfigs(o.Config.Backends)
 	if err != nil {
 		return fmt.Errorf("failed to create backends: %w", err)
 	}

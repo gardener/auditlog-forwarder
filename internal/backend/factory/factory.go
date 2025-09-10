@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package backend
+package factory
 
 import (
 	"fmt"
 
+	"github.com/gardener/auditlog-forwarder/internal/backend"
 	"github.com/gardener/auditlog-forwarder/internal/backend/http"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
 // NewFromConfig creates a backend from the given configuration.
-func NewFromConfig(config configv1alpha1.Backend) (Backend, error) {
+func NewFromConfig(config configv1alpha1.Backend) (backend.Backend, error) {
 	if config.HTTP != nil {
 		return http.New(config.HTTP)
 	}
@@ -21,8 +22,8 @@ func NewFromConfig(config configv1alpha1.Backend) (Backend, error) {
 }
 
 // NewFromConfigs creates a slice of backends from the given configurations.
-func NewFromConfigs(configs []configv1alpha1.Backend) ([]Backend, error) {
-	var backends []Backend
+func NewFromConfigs(configs []configv1alpha1.Backend) ([]backend.Backend, error) {
+	var backends []backend.Backend
 
 	for i, config := range configs {
 		backend, err := NewFromConfig(config)

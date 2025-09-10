@@ -15,11 +15,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/apis/audit"
-	v1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
 	"github.com/gardener/auditlog-forwarder/internal/backend"
+	backendfactory "github.com/gardener/auditlog-forwarder/internal/backend/factory"
+	"github.com/gardener/auditlog-forwarder/internal/helper"
+	"github.com/gardener/auditlog-forwarder/internal/processor"
+	"github.com/gardener/auditlog-forwarder/internal/processor/annotation"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
@@ -27,6 +29,7 @@ var _ = Describe("Handler", func() {
 	var (
 		logger       logr.Logger
 		annotations  map[string]string
+		processors   []processor.Processor
 		backendInsts []backend.Backend
 		handler      *Handler
 		testServer   *httptest.Server
@@ -37,6 +40,9 @@ var _ = Describe("Handler", func() {
 		logger = logr.Discard()
 		annotations = map[string]string{
 			"test-key": "test-value",
+		}
+		processors = []processor.Processor{
+			annotation.New(annotations),
 		}
 
 		testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +61,7 @@ var _ = Describe("Handler", func() {
 		}
 
 		var err error
-		backendInsts, err = backend.NewFromConfigs(backendConfigs)
+		backendInsts, err = backendfactory.NewFromConfigs(backendConfigs)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -68,7 +74,7 @@ var _ = Describe("Handler", func() {
 	Describe("NewHandler", func() {
 		It("should create a handler with backend clients", func() {
 			var err error
-			handler, err = NewHandler(logger, annotations, backendInsts)
+			handler, err = NewHandler(logger, processors, backendInsts)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(handler).NotTo(BeNil())
 			Expect(handler.backends).To(HaveLen(1))
@@ -77,7 +83,7 @@ var _ = Describe("Handler", func() {
 
 		It("should return error when no backends configured", func() {
 			var err error
-			handler, err = NewHandler(logger, annotations, []backend.Backend{})
+			handler, err = NewHandler(logger, processors, []backend.Backend{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no backends configured"))
 			Expect(handler).To(BeNil())
@@ -87,7 +93,7 @@ var _ = Describe("Handler", func() {
 	Describe("ServeHTTP", func() {
 		BeforeEach(func() {
 			var err error
-			handler, err = NewHandler(logger, annotations, backendInsts)
+			handler, err = NewHandler(logger, processors, backendInsts)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -111,7 +117,7 @@ var _ = Describe("Handler", func() {
 				},
 			}
 
-			body, err := runtime.Encode(codecs.LegacyCodec(v1.SchemeGroupVersion), eventList)
+			body, err := helper.EncodeEventList(eventList)
 			Expect(err).NotTo(HaveOccurred())
 
 			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
@@ -126,7 +132,7 @@ var _ = Describe("Handler", func() {
 				return len(response) > 0
 			}, time.Millisecond*100).Should(BeTrue())
 
-			forwardedEventList, err := decode(response)
+			forwardedEventList, err := helper.DecodeEventList(response)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(forwardedEventList.Items).To(HaveLen(1))
@@ -151,7 +157,7 @@ var _ = Describe("Handler", func() {
 				},
 			}
 
-			body, err := runtime.Encode(codecs.LegacyCodec(v1.SchemeGroupVersion), eventList)
+			body, err := helper.EncodeEventList(eventList)
 			Expect(err).NotTo(HaveOccurred())
 
 			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
@@ -170,7 +176,7 @@ var _ = Describe("Handler", func() {
 
 			handler.ServeHTTP(w, req)
 
-			Expect(w.Code).To(Equal(http.StatusBadRequest))
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 })

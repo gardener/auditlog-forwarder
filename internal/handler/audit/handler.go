@@ -9,19 +9,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apiserver/pkg/apis/audit"
-	v1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
 	"github.com/gardener/auditlog-forwarder/internal/backend"
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
+	"github.com/gardener/auditlog-forwarder/internal/processor"
 )
 
 const (
@@ -29,34 +25,23 @@ const (
 	mimeAppJSON       = "application/json"
 )
 
-var (
-	runtimeScheme = runtime.NewScheme()
-	codecs        = serializer.NewCodecFactory(runtimeScheme)
-	decoder       = codecs.UniversalDecoder()
-)
-
-func init() {
-	_ = v1.AddToScheme(runtimeScheme)
-	_ = audit.AddToScheme(runtimeScheme)
-}
-
 // Handler handles incoming audit events.
-// It additionally enriches the events with metadata and sends them to configured backednds.
+// It processes events through configured processors and sends them to configured backends.
 type Handler struct {
-	logger      logr.Logger
-	annotations map[string]string
-	backends    []backend.Backend
+	logger     logr.Logger
+	processors []processor.Processor
+	backends   []backend.Backend
 }
 
 // NewHandler creates a new [Handler].
-func NewHandler(logger logr.Logger, annotations map[string]string, backends []backend.Backend) (*Handler, error) {
+func NewHandler(logger logr.Logger, processors []processor.Processor, backends []backend.Backend) (*Handler, error) {
 	if len(backends) == 0 {
 		return nil, errors.New("no backends configured")
 	}
 	return &Handler{
-		logger:      logger,
-		annotations: annotations,
-		backends:    backends,
+		logger:     logger,
+		processors: processors,
+		backends:   backends,
 	}, nil
 }
 
@@ -74,41 +59,26 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eventList, err := decode(body)
-	if err != nil {
-		log.Error(err, "Decoding body")
-		w.Header().Set(headerContentType, mimeAppJSON)
-		w.WriteHeader(http.StatusBadRequest)
-		if _, err := w.Write([]byte(`{"code":400,"message":"invalid body format"}`)); err != nil {
-			log.Error(err, "Writing response body")
-			return
-		}
-		return
-	}
-
-	for i := range eventList.Items {
-		if eventList.Items[i].Annotations == nil {
-			eventList.Items[i].Annotations = make(map[string]string)
-		}
-		maps.Insert(eventList.Items[i].Annotations, maps.All(h.annotations))
-	}
-
-	respBody, err := runtime.Encode(codecs.LegacyCodec(v1.SchemeGroupVersion), eventList)
-	if err != nil {
-		log.Error(err, "Encoding response body")
-		w.Header().Set(headerContentType, mimeAppJSON)
-		w.WriteHeader(http.StatusInternalServerError)
-		if _, err := w.Write([]byte(`{"code":500,"message":"failed encoding response body"}`)); err != nil {
-			log.Error(err, "Writing response body")
-			return
-		}
-		return
-	}
-
-	log.Info("Received audit events", "count", len(eventList.Items))
-
 	ctx := loggerctx.WithLogger(r.Context(), log)
-	if err := forwardToBackends(ctx, respBody, h.backends, log); err != nil {
+
+	log.Info("Received audit events")
+
+	processedData := body
+	for _, processor := range h.processors {
+		processedData, err = processor.Process(ctx, body)
+		if err != nil {
+			log.Error(err, "Processing audit events", "processor", processor.Name())
+			w.Header().Set(headerContentType, mimeAppJSON)
+			w.WriteHeader(http.StatusInternalServerError)
+			if _, err := w.Write([]byte(`{"code":500,"message":"failed processing audit events"}`)); err != nil {
+				log.Error(err, "Writing response body")
+				return
+			}
+			return
+		}
+	}
+
+	if err := forwardToBackends(ctx, processedData, h.backends, log); err != nil {
 		log.Error(err, "Failed to forward audit events to backends")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -167,17 +137,4 @@ func forwardToBackends(ctx context.Context,
 	}
 
 	return nil
-}
-
-func decode(data []byte) (*audit.EventList, error) {
-	internal, schemaVersion, err := decoder.Decode(data, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	out, ok := internal.(*audit.EventList)
-	if !ok {
-		return nil, fmt.Errorf("failure to cast to auditlog internal; type: %v", schemaVersion)
-	}
-	return out, nil
 }

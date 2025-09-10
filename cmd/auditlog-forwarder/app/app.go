@@ -22,6 +22,8 @@ import (
 
 	"github.com/gardener/auditlog-forwarder/cmd/auditlog-forwarder/app/options"
 	"github.com/gardener/auditlog-forwarder/internal/handler/audit"
+	"github.com/gardener/auditlog-forwarder/internal/processor"
+	"github.com/gardener/auditlog-forwarder/internal/processor/annotation"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
@@ -73,7 +75,13 @@ func NewCommand() *cobra.Command {
 }
 
 func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
-	auditHandler, err := audit.NewHandler(log, conf.InjectAnnotations, conf.Backends)
+	// Create processors
+	var processors []processor.Processor
+	if len(conf.InjectAnnotations) > 0 {
+		processors = append(processors, annotation.New(conf.InjectAnnotations))
+	}
+
+	auditHandler, err := audit.NewHandler(log, processors, conf.Backends)
 	if err != nil {
 		return fmt.Errorf("failed to create audit handler: %w", err)
 	}

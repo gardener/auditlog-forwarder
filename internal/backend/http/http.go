@@ -76,7 +76,6 @@ func (b *Backend) Send(ctx context.Context, data []byte) error {
 		}
 	}
 
-	logger.Info("Successfully forwarded audit events", "status", resp.StatusCode)
 	return nil
 }
 

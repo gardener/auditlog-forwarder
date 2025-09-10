@@ -11,7 +11,7 @@ import (
 // Backend represents a backend for forwarding audit events.
 type Backend interface {
 	// Send sends data to the backend.
-	// The context may contain a logger accessible via LoggerFromContext.
+	// The context may contain a logger.
 	Send(ctx context.Context, data []byte) error
 
 	// Name returns a human-readable name/identifier for this backend.

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package backend
+package factory_test
 
 import (
 	"net/http/httptest"
@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/auditlog-forwarder/internal/backend/factory"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
@@ -34,7 +35,7 @@ var _ = Describe("Backend Factory", func() {
 				},
 			}
 
-			backend, err := NewFromConfig(config)
+			backend, err := factory.NewFromConfig(config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(backend).NotTo(BeNil())
 			Expect(backend.Name()).To(Equal(testServer.URL))
@@ -43,7 +44,7 @@ var _ = Describe("Backend Factory", func() {
 		It("should return error for empty config", func() {
 			config := configv1alpha1.Backend{}
 
-			backend, err := NewFromConfig(config)
+			backend, err := factory.NewFromConfig(config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("no supported backend type configured")))
 			Expect(backend).To(BeNil())
@@ -65,7 +66,7 @@ var _ = Describe("Backend Factory", func() {
 				},
 			}
 
-			backends, err := NewFromConfigs(configs)
+			backends, err := factory.NewFromConfigs(configs)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(backends).To(HaveLen(2))
 			Expect(backends[0].Name()).To(Equal(testServer.URL + "/endpoint1"))
@@ -73,7 +74,7 @@ var _ = Describe("Backend Factory", func() {
 		})
 
 		It("should handle empty configs slice", func() {
-			backends, err := NewFromConfigs([]configv1alpha1.Backend{})
+			backends, err := factory.NewFromConfigs([]configv1alpha1.Backend{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(backends).To(HaveLen(0))
 		})
@@ -88,7 +89,7 @@ var _ = Describe("Backend Factory", func() {
 				{}, // Invalid config
 			}
 
-			backends, err := NewFromConfigs(configs)
+			backends, err := factory.NewFromConfigs(configs)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("no supported backend type configured")))
 			Expect(backends).To(BeNil())
