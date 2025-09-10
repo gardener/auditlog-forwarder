@@ -7,6 +7,14 @@ tls:
     -----BEGIN PRIVATE KEY-----
     MIIE...
     -----END PRIVATE KEY-----
+  clientCrt: |
+    -----BEGIN CERTIFICATE-----
+    MIID...
+    -----END CERTIFICATE-----
+  clientKey: |
+    -----BEGIN PRIVATE KEY-----
+    MIIE...
+    -----END PRIVATE KEY-----
 
 image:
   repository: local-skaffold/auditlog-forwarder

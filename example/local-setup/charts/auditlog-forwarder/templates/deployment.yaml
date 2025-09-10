@@ -38,6 +38,9 @@ spec:
         - name: ca
           mountPath: /ca
           readOnly: true
+        - name: client-certs
+          mountPath: /client-certs
+          readOnly: true
       volumes:
       - name: tls
         secret:
@@ -48,3 +51,6 @@ spec:
       - name: ca
         secret:
           secretName: auditlog-forwarder-ca
+      - name: client-certs
+        secret:
+          secretName: auditlog-forwarder-client-certs

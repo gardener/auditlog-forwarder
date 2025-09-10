@@ -14,6 +14,10 @@ spec:
     port: 443
     targetPort: {{ .Values.config.port }}
     protocol: TCP
+  - name: health
+    port: 8080
+    targetPort: {{ .Values.config.healthPort }}
+    protocol: TCP
   selector:
     app.kubernetes.io/name: echo-server
     app.kubernetes.io/instance: {{ .Release.Name }}

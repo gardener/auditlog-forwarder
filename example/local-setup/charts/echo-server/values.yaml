@@ -7,6 +7,10 @@ tls:
     -----BEGIN PRIVATE KEY-----
     MIIE...
     -----END PRIVATE KEY-----
+  caCrt: |
+    -----BEGIN CERTIFICATE-----
+    MIID...
+    -----END CERTIFICATE-----
 
 image:
   repository: local-skaffold/echo-server
@@ -14,4 +18,5 @@ image:
 
 config:
   port: 8443
+  healthPort: 8080
   logBody: true

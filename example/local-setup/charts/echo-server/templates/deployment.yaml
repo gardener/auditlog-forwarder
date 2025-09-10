@@ -26,8 +26,10 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --port={{ .Values.config.port }}
+        - --health-port={{ .Values.config.healthPort }}
         - --tls-cert-file=/tls/tls.crt
         - --tls-key-file=/tls/tls.key
+        - --tls-ca-file=/ca/ca.crt
         {{- if .Values.config.logBody }}
         - --log-body
         {{- end }}
@@ -35,25 +37,34 @@ spec:
         - name: https
           containerPort: {{ .Values.config.port }}
           protocol: TCP
+        - name: health
+          containerPort: {{ .Values.config.healthPort }}
+          protocol: TCP
         volumeMounts:
         - name: tls
           mountPath: /tls
           readOnly: true
+        - name: ca
+          mountPath: /ca
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /health
-            port: https
-            scheme: HTTPS
+            port: health
+            scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /health
-            port: https
-            scheme: HTTPS
+            port: health
+            scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
       - name: tls
         secret:
           secretName: echo-server-tls
+      - name: ca
+        secret:
+          secretName: echo-server-ca

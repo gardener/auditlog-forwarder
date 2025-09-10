@@ -28,6 +28,8 @@ data:
         url: https://echo-server.kube-system.svc.cluster.local:443/audit
         tls:
           caFile: /ca/ca.crt
+          certFile: /client-certs/client.crt
+          keyFile: /client-certs/client.key
     
     injectAnnotations:
       environment: local-kind
