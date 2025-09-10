@@ -7,14 +7,12 @@ package backend
 import (
 	"fmt"
 
-	"github.com/go-logr/logr"
-
 	"github.com/gardener/auditlog-forwarder/internal/backend/http"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
 // NewFromConfig creates a backend from the given configuration.
-func NewFromConfig(config configv1alpha1.Backend, logger logr.Logger) (Backend, error) {
+func NewFromConfig(config configv1alpha1.Backend) (Backend, error) {
 	if config.HTTP != nil {
 		return http.New(config.HTTP)
 	}
@@ -23,11 +21,11 @@ func NewFromConfig(config configv1alpha1.Backend, logger logr.Logger) (Backend, 
 }
 
 // NewFromConfigs creates a slice of backends from the given configurations.
-func NewFromConfigs(configs []configv1alpha1.Backend, logger logr.Logger) ([]Backend, error) {
+func NewFromConfigs(configs []configv1alpha1.Backend) ([]Backend, error) {
 	var backends []Backend
 
 	for i, config := range configs {
-		backend, err := NewFromConfig(config, logger)
+		backend, err := NewFromConfig(config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create backend at index %d: %w", i, err)
 		}

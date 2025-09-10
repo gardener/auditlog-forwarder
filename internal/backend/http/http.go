@@ -88,7 +88,7 @@ func (b *Backend) Name() string {
 // createHTTPClient creates an HTTP client with optional TLS configuration.
 func createHTTPClient(tlsConfig *configv1alpha1.ClientTLSConfig) (*http.Client, error) {
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 15 * time.Second,
 	}
 
 	if tlsConfig == nil {

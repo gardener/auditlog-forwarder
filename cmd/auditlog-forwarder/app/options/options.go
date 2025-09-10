@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
+	"github.com/gardener/auditlog-forwarder/internal/backend"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 	"github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1/validation"
 )
@@ -86,6 +87,12 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
+	backends, err := backend.NewFromConfigs(o.Config.Backends)
+	if err != nil {
+		return fmt.Errorf("failed to create backends: %w", err)
+	}
+	server.Backends = backends
+
 	return nil
 }
 
@@ -111,6 +118,7 @@ func (o *Options) applyServerConfigToServing(serving *Serving) error {
 type Config struct {
 	Serving           Serving
 	InjectAnnotations map[string]string
+	Backends          []backend.Backend
 }
 
 // Serving contains the configuration for the auditlog forwarder.

@@ -73,7 +73,7 @@ func NewCommand() *cobra.Command {
 }
 
 func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
-	auditHandler, err := audit.NewHandler(log, conf.InjectAnnotations)
+	auditHandler, err := audit.NewHandler(log, conf.InjectAnnotations, conf.Backends)
 	if err != nil {
 		return fmt.Errorf("failed to create audit handler: %w", err)
 	}
@@ -85,8 +85,8 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 		Addr:         conf.Serving.Address,
 		Handler:      mux,
 		TLSConfig:    conf.Serving.TLSConfig,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
 	}
 
 	return runServer(ctx, log, srv)

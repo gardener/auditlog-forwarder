@@ -1,0 +1,176 @@
+// SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and Gardener contributors
+//
+// SPDX-License-Identifier: Apache-2.0
+
+package audit
+
+import (
+	"bytes"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"time"
+
+	"github.com/go-logr/logr"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/apis/audit"
+	v1 "k8s.io/apiserver/pkg/apis/audit/v1"
+
+	"github.com/gardener/auditlog-forwarder/internal/backend"
+	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
+)
+
+var _ = Describe("Handler", func() {
+	var (
+		logger       logr.Logger
+		annotations  map[string]string
+		backendInsts []backend.Backend
+		handler      *Handler
+		testServer   *httptest.Server
+		response     []byte
+	)
+
+	BeforeEach(func() {
+		logger = logr.Discard()
+		annotations = map[string]string{
+			"test-key": "test-value",
+		}
+
+		testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			Expect(err).NotTo(HaveOccurred())
+			response = body
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		backendConfigs := []configv1alpha1.Backend{
+			{
+				HTTP: &configv1alpha1.HTTPBackend{
+					URL: testServer.URL,
+				},
+			},
+		}
+
+		var err error
+		backendInsts, err = backend.NewFromConfigs(backendConfigs)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		if testServer != nil {
+			testServer.Close()
+		}
+	})
+
+	Describe("NewHandler", func() {
+		It("should create a handler with backend clients", func() {
+			var err error
+			handler, err = NewHandler(logger, annotations, backendInsts)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(handler).NotTo(BeNil())
+			Expect(handler.backends).To(HaveLen(1))
+			Expect(handler.backends[0].Name()).To(Equal(testServer.URL))
+		})
+
+		It("should return error when no backends configured", func() {
+			var err error
+			handler, err = NewHandler(logger, annotations, []backend.Backend{})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no backends configured"))
+			Expect(handler).To(BeNil())
+		})
+	})
+
+	Describe("ServeHTTP", func() {
+		BeforeEach(func() {
+			var err error
+			handler, err = NewHandler(logger, annotations, backendInsts)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should process audit events and forward to backends", func() {
+			eventList := &audit.EventList{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "audit.k8s.io/v1",
+					Kind:       "EventList",
+				},
+				Items: []audit.Event{
+					{
+						Verb: "create",
+						ObjectRef: &audit.ObjectReference{
+							Namespace: "test-namespace",
+							Name:      "test-pod",
+						},
+						Annotations: map[string]string{
+							"existing": "annotation",
+						},
+					},
+				},
+			}
+
+			body, err := runtime.Encode(codecs.LegacyCodec(v1.SchemeGroupVersion), eventList)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() bool {
+				return len(response) > 0
+			}, time.Millisecond*100).Should(BeTrue())
+
+			forwardedEventList, err := decode(response)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(forwardedEventList.Items).To(HaveLen(1))
+			event := forwardedEventList.Items[0]
+			Expect(event.Annotations).To(HaveKeyWithValue("test-key", "test-value"))
+			Expect(event.Annotations).To(HaveKeyWithValue("existing", "annotation"))
+		})
+
+		It("should return error when backend fails", func() {
+			// Close the test server to simulate backend failure
+			testServer.Close()
+
+			eventList := &audit.EventList{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "audit.k8s.io/v1",
+					Kind:       "EventList",
+				},
+				Items: []audit.Event{
+					{
+						Verb: "create",
+					},
+				},
+			}
+
+			body, err := runtime.Encode(codecs.LegacyCodec(v1.SchemeGroupVersion), eventList)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should handle malformed request body", func() {
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader([]byte("invalid json")))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+		})
+	})
+})

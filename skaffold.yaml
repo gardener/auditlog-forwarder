@@ -11,7 +11,12 @@ build:
             - cmd/auditlog-forwarder
             - cmd/auditlog-forwarder/app
             - cmd/auditlog-forwarder/app/options
+            - internal/backend
+            - internal/backend/http
+            - internal/context
             - internal/handler/audit
+            - pkg/apis/config/v1alpha1
+            - pkg/apis/config/v1alpha1/validation
             - VERSION
         ldflags:
           - '{{.LD_FLAGS}}'
