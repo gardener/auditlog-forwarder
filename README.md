@@ -1,5 +1,9 @@
 # Auditlog Forwarder
 
+[![REUSE status](https://api.reuse.software/badge/github.com/gardener/auditlog-forwarder)](https://api.reuse.software/info/github.com/gardener/auditlog-forwarder)
+[![Build](https://github.com/gardener/auditlog-forwarder/actions/workflows/non-release.yaml/badge.svg)](https://github.com/gardener/auditlog-forwarder/actions/workflows/non-release.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gardener/auditlog-forwarder)](https://goreportcard.com/report/github.com/gardener/auditlog-forwarder)
+
 A Kubernetes audit log forwarder that receives audit events from Kubernetes API servers via webhook, enriches them with metadata annotations, and forwards them to configured backends. This project is part of the [Gardener](https://gardener.cloud/) ecosystem for managing Kubernetes clusters.
 
 ## Overview
