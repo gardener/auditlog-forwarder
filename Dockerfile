@@ -14,6 +14,6 @@ RUN make install EFFECTIVE_VERSION=$EFFECTIVE_VERSION
 
 FROM gcr.io/distroless/static-debian12:nonroot AS auditlog-forwarder
 WORKDIR /
-COPY --from=go-builder /workspace/auditlog-forwarder .
 
+COPY --from=go-builder /go/bin/auditlog-forwarder /auditlog-forwarder
 ENTRYPOINT ["/auditlog-forwarder"]
