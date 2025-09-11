@@ -44,6 +44,20 @@ build:
 deploy:
   helm:
     releases:
+      - name: echo-server
+        chartPath: example/local-setup/charts/echo-server
+        valuesFiles:
+          - example/local-setup/charts/echo-server/values.yaml
+        namespace: kube-system
+        setValueTemplates:
+          image.repository: '{{.IMAGE_REPO_local_skaffold_echo_server}}'
+          image.tag: '{{.IMAGE_TAG_local_skaffold_echo_server}}@{{.IMAGE_DIGEST_local_skaffold_echo_server}}'
+        setFiles:
+          tls.crt: dev/local/certs/echo-server-tls.crt
+          tls.key: dev/local/certs/echo-server-tls.key
+          tls.clientCA: dev/local/certs/ca.crt
+        createNamespace: false
+        wait: true
       - name: auditlog-forwarder
         chartPath: example/local-setup/charts/auditlog-forwarder
         valuesFiles:
@@ -58,19 +72,5 @@ deploy:
           tls.clientCA: dev/local/certs/ca.crt
           backend.clientCrt: dev/local/certs/client.crt
           backend.clientKey: dev/local/certs/client.key
-        createNamespace: false
-        wait: true
-      - name: echo-server
-        chartPath: example/local-setup/charts/echo-server
-        valuesFiles:
-          - example/local-setup/charts/echo-server/values.yaml
-        namespace: kube-system
-        setValueTemplates:
-          image.repository: '{{.IMAGE_REPO_local_skaffold_echo_server}}'
-          image.tag: '{{.IMAGE_TAG_local_skaffold_echo_server}}@{{.IMAGE_DIGEST_local_skaffold_echo_server}}'
-        setFiles:
-          tls.crt: dev/local/certs/echo-server-tls.crt
-          tls.key: dev/local/certs/echo-server-tls.key
-          tls.clientCA: dev/local/certs/ca.crt
         createNamespace: false
         wait: true
