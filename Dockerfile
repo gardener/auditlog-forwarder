@@ -5,7 +5,12 @@
 FROM golang:1.25.1 AS go-builder
 
 ARG TARGETARCH
-WORKDIR /workspace
+WORKDIR /go/src/github.com/gardener/auditlog-forwarder
+
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+RUN go mod download
 
 COPY . .
 
