@@ -36,7 +36,7 @@ func init() {
 // Options contain the server options.
 type Options struct {
 	ConfigFile string
-	Config     *configv1alpha1.AuditlogForwarderConfiguration
+	Config     *configv1alpha1.AuditlogForwarder
 }
 
 // NewOptions return options with default values.
@@ -61,7 +61,7 @@ func (o *Options) Complete() error {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
 
-	o.Config = &configv1alpha1.AuditlogForwarderConfiguration{}
+	o.Config = &configv1alpha1.AuditlogForwarder{}
 	if err = runtime.DecodeInto(configDecoder, data, o.Config); err != nil {
 		return fmt.Errorf("error decoding config: %w", err)
 	}
@@ -71,7 +71,7 @@ func (o *Options) Complete() error {
 
 // Validate validates the configuration.
 func (o *Options) Validate() error {
-	if errs := validation.ValidateAuditlogForwarderConfiguration(o.Config); len(errs) > 0 {
+	if errs := validation.ValidateAuditlogForwarder(o.Config); len(errs) > 0 {
 		return errs.ToAggregate()
 	}
 	return nil

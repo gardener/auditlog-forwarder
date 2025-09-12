@@ -13,23 +13,23 @@ import (
 
 var _ = Describe("Defaults", func() {
 	var (
-		obj *AuditlogForwarderConfiguration
+		obj *AuditlogForwarder
 	)
 
 	BeforeEach(func() {
-		obj = &AuditlogForwarderConfiguration{}
+		obj = &AuditlogForwarder{}
 	})
 
-	Describe("#SetDefaults_AuditlogForwarderConfiguration", func() {
+	Describe("#SetDefaults_AuditlogForwarder", func() {
 		It("should default the log level and format", func() {
-			SetDefaults_AuditlogForwarderConfiguration(obj)
+			SetDefaults_AuditlogForwarder(obj)
 
 			Expect(obj.Log.Level).To(Equal(LogLevelInfo))
 			Expect(obj.Log.Format).To(Equal(LogFormatJSON))
 		})
 
 		It("should default the server port", func() {
-			SetDefaults_AuditlogForwarderConfiguration(obj)
+			SetDefaults_AuditlogForwarder(obj)
 
 			Expect(obj.Server.Port).To(Equal(uint(10443)))
 		})
@@ -39,7 +39,7 @@ var _ = Describe("Defaults", func() {
 			obj.Log.Format = LogFormatText
 			obj.Server.Port = 8080
 
-			SetDefaults_AuditlogForwarderConfiguration(obj)
+			SetDefaults_AuditlogForwarder(obj)
 
 			Expect(obj.Log.Level).To(Equal(LogLevelDebug))
 			Expect(obj.Log.Format).To(Equal(LogFormatText))
@@ -47,23 +47,23 @@ var _ = Describe("Defaults", func() {
 		})
 	})
 
-	Describe("#SetDefaults_LogConfiguration", func() {
+	Describe("#SetDefaults_Log", func() {
 		var (
-			logConfig *LogConfiguration
+			logConfig *Log
 		)
 
 		BeforeEach(func() {
-			logConfig = &LogConfiguration{}
+			logConfig = &Log{}
 		})
 
 		It("should default the level to info", func() {
-			SetDefaults_LogConfiguration(logConfig)
+			SetDefaults_Log(logConfig)
 
 			Expect(logConfig.Level).To(Equal(LogLevelInfo))
 		})
 
 		It("should default the format to json", func() {
-			SetDefaults_LogConfiguration(logConfig)
+			SetDefaults_Log(logConfig)
 
 			Expect(logConfig.Format).To(Equal(LogFormatJSON))
 		})
@@ -72,24 +72,24 @@ var _ = Describe("Defaults", func() {
 			logConfig.Level = LogLevelDebug
 			logConfig.Format = LogFormatText
 
-			SetDefaults_LogConfiguration(logConfig)
+			SetDefaults_Log(logConfig)
 
 			Expect(logConfig.Level).To(Equal(LogLevelDebug))
 			Expect(logConfig.Format).To(Equal(LogFormatText))
 		})
 	})
 
-	Describe("#SetDefaults_ServerConfiguration", func() {
+	Describe("#SetDefaults_Server", func() {
 		var (
-			serverConfig *ServerConfiguration
+			serverConfig *Server
 		)
 
 		BeforeEach(func() {
-			serverConfig = &ServerConfiguration{}
+			serverConfig = &Server{}
 		})
 
 		It("should default the port to 10443", func() {
-			SetDefaults_ServerConfiguration(serverConfig)
+			SetDefaults_Server(serverConfig)
 
 			Expect(serverConfig.Port).To(Equal(uint(10443)))
 		})
@@ -97,19 +97,19 @@ var _ = Describe("Defaults", func() {
 		It("should not override existing port value", func() {
 			serverConfig.Port = 8080
 
-			SetDefaults_ServerConfiguration(serverConfig)
+			SetDefaults_Server(serverConfig)
 
 			Expect(serverConfig.Port).To(Equal(uint(8080)))
 		})
 
 		It("should not set defaults for address (should remain empty)", func() {
-			SetDefaults_ServerConfiguration(serverConfig)
+			SetDefaults_Server(serverConfig)
 
 			Expect(serverConfig.Address).To(BeEmpty())
 		})
 
 		It("should not set defaults for TLS configuration", func() {
-			SetDefaults_ServerConfiguration(serverConfig)
+			SetDefaults_Server(serverConfig)
 
 			Expect(serverConfig.TLS.CertFile).To(BeEmpty())
 			Expect(serverConfig.TLS.KeyFile).To(BeEmpty())

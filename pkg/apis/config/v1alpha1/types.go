@@ -24,14 +24,14 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// AuditlogForwarderConfiguration defines the configuration for the audit log forwarder.
-type AuditlogForwarderConfiguration struct {
+// AuditlogForwarder defines the configuration for the audit log forwarder.
+type AuditlogForwarder struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// Log contains the logging configuration for the audit log forwarder.
-	Log LogConfiguration `json:"log"`
+	Log Log `json:"log"`
 	// Server contains the server configuration for the audit log forwarder.
-	Server ServerConfiguration `json:"server"`
+	Server Server `json:"server"`
 	// Backends contains the list of backends to forward audit logs to.
 	Backends []Backend `json:"backends"`
 	// InjectAnnotations contains annotations to be injected into audit events.
@@ -39,8 +39,8 @@ type AuditlogForwarderConfiguration struct {
 	InjectAnnotations map[string]string `json:"injectAnnotations,omitempty"`
 }
 
-// LogConfiguration defines the logging configuration for the audit log forwarder.
-type LogConfiguration struct {
+// Log defines the logging configuration for the audit log forwarder.
+type Log struct {
 	// Level is the level/severity for the logs. Must be one of [info,debug,error].
 	// +optional
 	Level string `json:"level,omitempty"`
@@ -49,8 +49,8 @@ type LogConfiguration struct {
 	Format string `json:"format,omitempty"`
 }
 
-// ServerConfiguration defines the server configuration for the audit log forwarder.
-type ServerConfiguration struct {
+// Server defines the server configuration for the audit log forwarder.
+type Server struct {
 	// Port is the port that the server will listen on.
 	// +optional
 	Port uint `json:"port,omitempty"`
@@ -59,11 +59,11 @@ type ServerConfiguration struct {
 	// +optional
 	Address string `json:"address,omitempty"`
 	// TLS contains the TLS configuration for the server.
-	TLS TLSConfig `json:"tls"`
+	TLS TLS `json:"tls"`
 }
 
-// TLSConfig defines the TLS configuration for the server.
-type TLSConfig struct {
+// TLS defines the TLS configuration for the server.
+type TLS struct {
 	// CertFile is the file containing the x509 Certificate for HTTPS.
 	CertFile string `json:"certFile"`
 	// KeyFile is the file containing the x509 private key matching the certificate.
@@ -87,11 +87,11 @@ type HTTPBackend struct {
 	URL string `json:"url"`
 	// TLS contains the TLS configuration for client.
 	// +optional
-	TLS *ClientTLSConfig `json:"tls,omitempty"`
+	TLS *ClientTLS `json:"tls,omitempty"`
 }
 
-// ClientTLSConfig defines the TLS configuration for client.
-type ClientTLSConfig struct {
+// ClientTLS defines the TLS configuration for client.
+type ClientTLS struct {
 	// CAFile is the file containing the Certificate Authority to verify the server certificate.
 	// +optional
 	CAFile string `json:"caFile,omitempty"`

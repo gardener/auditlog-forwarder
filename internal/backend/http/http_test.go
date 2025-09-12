@@ -66,7 +66,7 @@ var _ = Describe("HTTP Backend", func() {
 		It("should create backend with TLS config", func() {
 			config := &configv1alpha1.HTTPBackend{
 				URL: testServer.URL,
-				TLS: &configv1alpha1.ClientTLSConfig{
+				TLS: &configv1alpha1.ClientTLS{
 					CAFile: "/nonexistent/ca.pem",
 				},
 			}

@@ -27,12 +27,12 @@ var (
 	)
 )
 
-// ValidateAuditlogForwarderConfiguration validates the given [*configv1alpha1.AuditlogForwarderConfiguration].
-func ValidateAuditlogForwarderConfiguration(cfg *configv1alpha1.AuditlogForwarderConfiguration) field.ErrorList {
+// ValidateAuditlogForwarder validates the given [*configv1alpha1.AuditlogForwarder].
+func ValidateAuditlogForwarder(cfg *configv1alpha1.AuditlogForwarder) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, validateLogConfiguration(&cfg.Log, field.NewPath("log"))...)
-	allErrs = append(allErrs, validateServerConfig(&cfg.Server, field.NewPath("server"))...)
+	allErrs = append(allErrs, validateServer(&cfg.Server, field.NewPath("server"))...)
 	allErrs = append(allErrs, validateBackends(cfg.Backends, field.NewPath("backends"))...)
 	allErrs = append(allErrs, validateInjectAnnotations(cfg.InjectAnnotations, field.NewPath("injectAnnotations"))...)
 
@@ -40,7 +40,7 @@ func ValidateAuditlogForwarderConfiguration(cfg *configv1alpha1.AuditlogForwarde
 }
 
 // validateLogConfiguration validates the log configuration.
-func validateLogConfiguration(logConfig *configv1alpha1.LogConfiguration, fldPath *field.Path) field.ErrorList {
+func validateLogConfiguration(logConfig *configv1alpha1.Log, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if logConfig.Level != "" {
@@ -58,21 +58,21 @@ func validateLogConfiguration(logConfig *configv1alpha1.LogConfiguration, fldPat
 	return allErrs
 }
 
-// validateServerConfig validates the server configuration.
-func validateServerConfig(serverConfig *configv1alpha1.ServerConfiguration, fldPath *field.Path) field.ErrorList {
+// validateServer validates the server configuration.
+func validateServer(serverConfig *configv1alpha1.Server, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if serverConfig.Port == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("port"), "port is required"))
 	}
 
-	allErrs = append(allErrs, validateTLSConfig(&serverConfig.TLS, fldPath.Child("tls"))...)
+	allErrs = append(allErrs, validateTLS(&serverConfig.TLS, fldPath.Child("tls"))...)
 
 	return allErrs
 }
 
-// validateTLSConfig validates the TLS configuration.
-func validateTLSConfig(tlsConfig *configv1alpha1.TLSConfig, fldPath *field.Path) field.ErrorList {
+// validateTLS validates the TLS configuration.
+func validateTLS(tlsConfig *configv1alpha1.TLS, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if strings.TrimSpace(tlsConfig.CertFile) == "" {
@@ -172,14 +172,14 @@ func validateHTTPBackend(httpBackend *configv1alpha1.HTTPBackend, fldPath *field
 	}
 
 	if httpBackend.TLS != nil {
-		allErrs = append(allErrs, validateClientTLSConfig(httpBackend.TLS, fldPath.Child("tls"))...)
+		allErrs = append(allErrs, validateClientTLS(httpBackend.TLS, fldPath.Child("tls"))...)
 	}
 
 	return allErrs
 }
 
-// validateClientTLSConfig validates the client TLS configuration.
-func validateClientTLSConfig(tlsConfig *configv1alpha1.ClientTLSConfig, fldPath *field.Path) field.ErrorList {
+// validateClientTLS validates the client TLS configuration.
+func validateClientTLS(tlsConfig *configv1alpha1.ClientTLS, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Both certFile and keyFile must be specified together for client authentication

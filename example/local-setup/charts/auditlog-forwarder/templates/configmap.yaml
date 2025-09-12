@@ -10,7 +10,7 @@ metadata:
 data:
   config.yaml: |
     apiVersion: config.auditlog-forwarder.gardener.cloud/v1alpha1
-    kind: AuditlogForwarderConfiguration
+    kind: AuditlogForwarder
     
     log:
       level: {{ .Values.config.log.level }}

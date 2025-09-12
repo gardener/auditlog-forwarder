@@ -1,5 +1,5 @@
 apiVersion: config.auditlog-forwarder.gardener.cloud/v1alpha1
-kind: AuditlogForwarderConfiguration
+kind: AuditlogForwarder
 
 log:
   level: info

@@ -4,14 +4,14 @@
 
 package v1alpha1
 
-// SetDefaults_AuditlogForwarderConfiguration sets defaults for the configuration of the audit log forwarder.
-func SetDefaults_AuditlogForwarderConfiguration(obj *AuditlogForwarderConfiguration) {
-	SetDefaults_LogConfiguration(&obj.Log)
-	SetDefaults_ServerConfiguration(&obj.Server)
+// SetDefaults_AuditlogForwarder sets defaults for the configuration of the audit log forwarder.
+func SetDefaults_AuditlogForwarder(obj *AuditlogForwarder) {
+	SetDefaults_Log(&obj.Log)
+	SetDefaults_Server(&obj.Server)
 }
 
-// SetDefaults_LogConfiguration sets defaults for the logging configuration.
-func SetDefaults_LogConfiguration(obj *LogConfiguration) {
+// SetDefaults_Log sets defaults for the logging configuration.
+func SetDefaults_Log(obj *Log) {
 	if obj.Level == "" {
 		obj.Level = LogLevelInfo
 	}
@@ -20,8 +20,8 @@ func SetDefaults_LogConfiguration(obj *LogConfiguration) {
 	}
 }
 
-// SetDefaults_ServerConfiguration sets defaults for the server configuration.
-func SetDefaults_ServerConfiguration(obj *ServerConfiguration) {
+// SetDefaults_Server sets defaults for the server configuration.
+func SetDefaults_Server(obj *Server) {
 	if obj.Port == 0 {
 		obj.Port = 10443
 	}

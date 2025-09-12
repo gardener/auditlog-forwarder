@@ -17,14 +17,12 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
-	scheme.AddTypeDefaultingFunc(&AuditlogForwarderConfiguration{}, func(obj interface{}) {
-		SetObjectDefaults_AuditlogForwarderConfiguration(obj.(*AuditlogForwarderConfiguration))
-	})
+	scheme.AddTypeDefaultingFunc(&AuditlogForwarder{}, func(obj interface{}) { SetObjectDefaults_AuditlogForwarder(obj.(*AuditlogForwarder)) })
 	return nil
 }
 
-func SetObjectDefaults_AuditlogForwarderConfiguration(in *AuditlogForwarderConfiguration) {
-	SetDefaults_AuditlogForwarderConfiguration(in)
-	SetDefaults_LogConfiguration(&in.Log)
-	SetDefaults_ServerConfiguration(&in.Server)
+func SetObjectDefaults_AuditlogForwarder(in *AuditlogForwarder) {
+	SetDefaults_AuditlogForwarder(in)
+	SetDefaults_Log(&in.Log)
+	SetDefaults_Server(&in.Server)
 }

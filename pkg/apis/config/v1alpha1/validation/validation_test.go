@@ -17,17 +17,17 @@ import (
 )
 
 var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
-	var config *configv1alpha1.AuditlogForwarderConfiguration
+	var config *configv1alpha1.AuditlogForwarder
 
 	BeforeEach(func() {
-		config = &configv1alpha1.AuditlogForwarderConfiguration{
-			Log: configv1alpha1.LogConfiguration{
+		config = &configv1alpha1.AuditlogForwarder{
+			Log: configv1alpha1.Log{
 				Level:  configv1alpha1.LogLevelInfo,
 				Format: configv1alpha1.LogFormatJSON,
 			},
-			Server: configv1alpha1.ServerConfiguration{
+			Server: configv1alpha1.Server{
 				Port: 10443,
-				TLS: configv1alpha1.TLSConfig{
+				TLS: configv1alpha1.TLS{
 					CertFile: "/path/to/cert.pem",
 					KeyFile:  "/path/to/key.pem",
 				},
@@ -49,7 +49,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 	Context("when configuration is valid", func() {
 		It("should return no errors", func() {
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(BeEmpty())
 		})
 	})
@@ -58,7 +58,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		It("should return an error", func() {
 			config.Server.Port = 0
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeRequired),
 				"Field": Equal("server.port"),
@@ -70,7 +70,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		It("should return an error", func() {
 			config.Server.TLS.CertFile = ""
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeRequired),
 				"Field": Equal("server.tls.certFile"),
@@ -82,7 +82,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		It("should return an error", func() {
 			config.Server.TLS.KeyFile = ""
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeRequired),
 				"Field": Equal("server.tls.keyFile"),
@@ -95,7 +95,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			config.Server.TLS.CertFile = ""
 			config.Server.TLS.KeyFile = ""
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
@@ -113,7 +113,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		It("should return an error", func() {
 			config.Log.Level = "invalid"
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeNotSupported),
 				"Field": Equal("log.level"),
@@ -125,7 +125,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		It("should return an error", func() {
 			config.Log.Format = "invalid"
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeNotSupported),
 				"Field": Equal("log.format"),
@@ -135,9 +135,9 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 	Context("when log configuration is empty", func() {
 		It("should not return errors (defaults will be applied)", func() {
-			config.Log = configv1alpha1.LogConfiguration{}
+			config.Log = configv1alpha1.Log{}
 
-			errs := ValidateAuditlogForwarderConfiguration(config)
+			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(BeEmpty())
 		})
 	})
@@ -147,7 +147,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should not return errors", func() {
 				config.Server.TLS.ClientCAFile = "/path/to/ca.pem"
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(BeEmpty())
 			})
 		})
@@ -156,7 +156,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Server.TLS.ClientCAFile = "   "
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("server.tls.clientCAFile"),
@@ -168,7 +168,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should not return errors", func() {
 				config.Server.TLS.ClientCAFile = ""
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(BeEmpty())
 			})
 		})
@@ -179,7 +179,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends = []configv1alpha1.Backend{}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("backends"),
@@ -202,7 +202,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					},
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("backends"),
@@ -218,7 +218,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					},
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("backends[0]"),
@@ -230,7 +230,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.URL = ""
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("backends[0].http.url"),
@@ -242,7 +242,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.URL = "://invalid-url"
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("backends[0].http.url"),
@@ -254,7 +254,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.URL = "http://example.com/audit"
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("backends[0].http.url"),
@@ -267,7 +267,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.URL = "https://example.com/audit?param=value"
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("backends[0].http.url"),
@@ -280,7 +280,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.URL = "https://example.com/audit#fragment"
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("backends[0].http.url"),
@@ -293,7 +293,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return an error", func() {
 				config.Backends[0].HTTP.URL = "https://user:pass@example.com/audit"
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("backends[0].http.url"),
@@ -304,25 +304,25 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 		Context("when HTTP backend has valid TLS configuration", func() {
 			It("should return no errors", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLSConfig{
+				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					CAFile:   "/path/to/ca.pem",
 					CertFile: "/path/to/client-cert.pem",
 					KeyFile:  "/path/to/client-key.pem",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(BeEmpty())
 			})
 		})
 
 		Context("when HTTP backend has only cert file without key file", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLSConfig{
+				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					CertFile: "/path/to/client-cert.pem",
 					// KeyFile is missing
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("backends[0].http.tls.keyFile"),
@@ -332,11 +332,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 		Context("when HTTP backend has only key file without cert file", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLSConfig{
+				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					KeyFile: "/path/to/client-key.pem",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("backends[0].http.tls.certFile"),
@@ -346,11 +346,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 		Context("when HTTP backend does not configure client authentication", func() {
 			It("should return no errors", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLSConfig{
+				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					CAFile: "/path/to/ca.pem",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(BeEmpty())
 			})
 		})
@@ -366,7 +366,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					"custom.domain.io/annotation":    "custom-value",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(BeEmpty())
 			})
 		})
@@ -375,7 +375,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			It("should return no errors", func() {
 				config.InjectAnnotations = nil
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(BeEmpty())
 			})
 		})
@@ -386,7 +386,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					"": "some-value",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -408,7 +408,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					"valid.key": "",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("injectAnnotations[valid.key]"),
@@ -422,7 +422,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					"invalid@key": "value",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("injectAnnotations"),
@@ -438,7 +438,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					longKey: "value",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("injectAnnotations"),
@@ -455,7 +455,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					"invalid@key": "invalid-char",
 				}
 
-				errs := ValidateAuditlogForwarderConfiguration(config)
+				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(HaveLen(4))
 				Expect(errs).To(ContainElements(
 					PointTo(MatchFields(IgnoreExtras, Fields{
