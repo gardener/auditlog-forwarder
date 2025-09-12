@@ -24,7 +24,7 @@ data:
         keyFile: /tls/tls.key
         clientCAFile: /ca/ca.crt
     
-    backends:
+    outputs:
     - http:
         url: https://echo-server.kube-system.svc.cluster.local:443/audit
         tls:

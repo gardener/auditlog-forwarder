@@ -17,9 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 
-	"github.com/gardener/auditlog-forwarder/internal/backend"
-	backendfactory "github.com/gardener/auditlog-forwarder/internal/backend/factory"
 	"github.com/gardener/auditlog-forwarder/internal/helper"
+	"github.com/gardener/auditlog-forwarder/internal/output"
+	outputfactory "github.com/gardener/auditlog-forwarder/internal/output/factory"
 	"github.com/gardener/auditlog-forwarder/internal/processor"
 	"github.com/gardener/auditlog-forwarder/internal/processor/annotation"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
@@ -27,13 +27,13 @@ import (
 
 var _ = Describe("Handler", func() {
 	var (
-		logger       logr.Logger
-		annotations  map[string]string
-		processors   []processor.Processor
-		backendInsts []backend.Backend
-		handler      *Handler
-		testServer   *httptest.Server
-		response     []byte
+		logger      logr.Logger
+		annotations map[string]string
+		processors  []processor.Processor
+		outputInsts []output.Output
+		handler     *Handler
+		testServer  *httptest.Server
+		response    []byte
 	)
 
 	BeforeEach(func() {
@@ -52,16 +52,16 @@ var _ = Describe("Handler", func() {
 			w.WriteHeader(http.StatusOK)
 		}))
 
-		backendConfigs := []configv1alpha1.Backend{
+		outputConfigs := []configv1alpha1.Output{
 			{
-				HTTP: &configv1alpha1.HTTPBackend{
+				HTTP: &configv1alpha1.OutputHTTP{
 					URL: testServer.URL,
 				},
 			},
 		}
 
 		var err error
-		backendInsts, err = backendfactory.NewFromConfigs(backendConfigs)
+		outputInsts, err = outputfactory.NewFromConfigs(outputConfigs)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -72,20 +72,20 @@ var _ = Describe("Handler", func() {
 	})
 
 	Describe("NewHandler", func() {
-		It("should create a handler with backend clients", func() {
+		It("should create a handler with output clients", func() {
 			var err error
-			handler, err = NewHandler(logger, processors, backendInsts)
+			handler, err = NewHandler(logger, processors, outputInsts)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(handler).NotTo(BeNil())
-			Expect(handler.backends).To(HaveLen(1))
-			Expect(handler.backends[0].Name()).To(Equal(testServer.URL))
+			Expect(handler.outputs).To(HaveLen(1))
+			Expect(handler.outputs[0].Name()).To(Equal(testServer.URL))
 		})
 
-		It("should return error when no backends configured", func() {
+		It("should return error when no outputs configured", func() {
 			var err error
-			handler, err = NewHandler(logger, processors, []backend.Backend{})
+			handler, err = NewHandler(logger, processors, []output.Output{})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no backends configured"))
+			Expect(err.Error()).To(ContainSubstring("no outputs configured"))
 			Expect(handler).To(BeNil())
 		})
 	})
@@ -93,11 +93,11 @@ var _ = Describe("Handler", func() {
 	Describe("ServeHTTP", func() {
 		BeforeEach(func() {
 			var err error
-			handler, err = NewHandler(logger, processors, backendInsts)
+			handler, err = NewHandler(logger, processors, outputInsts)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should process audit events and forward to backends", func() {
+		It("should process audit events and forward to outputs", func() {
 			eventList := &audit.EventList{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "audit.k8s.io/v1",
@@ -141,8 +141,8 @@ var _ = Describe("Handler", func() {
 			Expect(event.Annotations).To(HaveKeyWithValue("existing", "annotation"))
 		})
 
-		It("should return error when backend fails", func() {
-			// Close the test server to simulate backend failure
+		It("should return error when output fails", func() {
+			// Close the test server to simulate output failure
 			testServer.Close()
 
 			eventList := &audit.EventList{

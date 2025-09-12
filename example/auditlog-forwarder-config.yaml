@@ -14,7 +14,7 @@ server:
     keyFile: "/etc/certs/tls.key"
     # clientCAFile: "/etc/certs/client-ca.crt"
 
-backends:
+outputs:
 - http:
     url: https://example.com/v1/logs
     tls:

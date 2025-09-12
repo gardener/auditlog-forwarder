@@ -33,7 +33,7 @@ func ValidateAuditlogForwarder(cfg *configv1alpha1.AuditlogForwarder) field.Erro
 
 	allErrs = append(allErrs, validateLogConfiguration(&cfg.Log, field.NewPath("log"))...)
 	allErrs = append(allErrs, validateServer(&cfg.Server, field.NewPath("server"))...)
-	allErrs = append(allErrs, validateBackends(cfg.Backends, field.NewPath("backends"))...)
+	allErrs = append(allErrs, validateOutputs(cfg.Outputs, field.NewPath("outputs"))...)
 	allErrs = append(allErrs, validateInjectAnnotations(cfg.InjectAnnotations, field.NewPath("injectAnnotations"))...)
 
 	return allErrs
@@ -91,88 +91,88 @@ func validateTLS(tlsConfig *configv1alpha1.TLS, fldPath *field.Path) field.Error
 	return allErrs
 }
 
-// validateBackends validates the backends configuration.
-func validateBackends(backends []configv1alpha1.Backend, fldPath *field.Path) field.ErrorList {
+// validateOutputs validates the outputs configuration.
+func validateOutputs(outputs []configv1alpha1.Output, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if len(backends) == 0 {
-		allErrs = append(allErrs, field.Required(fldPath, "at least one backend must be configured"))
+	if len(outputs) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath, "at least one output must be configured"))
 		return allErrs
 	}
 
 	// TODO: remove this limitation in the future
-	if len(backends) != 1 {
-		allErrs = append(allErrs, field.Invalid(fldPath, len(backends), "exactly one backend must be configured"))
+	if len(outputs) != 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath, len(outputs), "exactly one output must be configured"))
 		return allErrs
 	}
 
-	for i, backend := range backends {
-		backendPath := fldPath.Index(i)
-		allErrs = append(allErrs, validateBackend(&backend, backendPath)...)
+	for i, output := range outputs {
+		outputPath := fldPath.Index(i)
+		allErrs = append(allErrs, validateOutput(&output, outputPath)...)
 	}
 
 	return allErrs
 }
 
-// validateBackend validates a single backend configuration.
-func validateBackend(backend *configv1alpha1.Backend, fldPath *field.Path) field.ErrorList {
+// validateOutput validates a single output configuration.
+func validateOutput(output *configv1alpha1.Output, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// Count the number of backend types configured
-	backendTypes := 0
-	if backend.HTTP != nil {
-		backendTypes++
+	// Count the number of output types configured
+	outputTypes := 0
+	if output.HTTP != nil {
+		outputTypes++
 	}
 
-	if backendTypes == 0 {
-		allErrs = append(allErrs, field.Required(fldPath, "backend type must be specified (currently only 'http' is supported)"))
+	if outputTypes == 0 {
+		allErrs = append(allErrs, field.Required(fldPath, "output type must be specified (currently only 'http' is supported)"))
 		return allErrs
 	}
 
-	if backendTypes > 1 {
-		allErrs = append(allErrs, field.Invalid(fldPath, backendTypes, "exactly one backend type must be specified"))
+	if outputTypes > 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath, outputTypes, "exactly one output type must be specified"))
 		return allErrs
 	}
 
-	if backend.HTTP != nil {
-		allErrs = append(allErrs, validateHTTPBackend(backend.HTTP, fldPath.Child("http"))...)
+	if output.HTTP != nil {
+		allErrs = append(allErrs, validateOutputHTTP(output.HTTP, fldPath.Child("http"))...)
 	}
 
 	return allErrs
 }
 
-// validateHTTPBackend validates the HTTP backend configuration.
-func validateHTTPBackend(httpBackend *configv1alpha1.HTTPBackend, fldPath *field.Path) field.ErrorList {
+// validateOutputHTTP validates the HTTP output configuration.
+func validateOutputHTTP(httpOutput *configv1alpha1.OutputHTTP, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	urlValue := strings.TrimSpace(httpBackend.URL)
+	urlValue := strings.TrimSpace(httpOutput.URL)
 	if urlValue == "" {
-		allErrs = append(allErrs, field.Required(fldPath.Child("url"), "URL is required for HTTP backend"))
+		allErrs = append(allErrs, field.Required(fldPath.Child("url"), "URL is required for HTTP output"))
 	} else {
 		// Validate URL format
-		if backendURL, err := url.Parse(urlValue); err != nil {
+		if outputURL, err := url.Parse(urlValue); err != nil {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "invalid URL format"))
 		} else {
-			if backendURL.Scheme != "https" {
+			if outputURL.Scheme != "https" {
 				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL scheme must be 'https'"))
 			}
 
-			if backendURL.RawQuery != "" {
+			if outputURL.RawQuery != "" {
 				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL must not contain query parameters"))
 			}
 
-			if backendURL.Fragment != "" {
+			if outputURL.Fragment != "" {
 				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL must not contain fragments"))
 			}
 
-			if backendURL.User != nil {
+			if outputURL.User != nil {
 				allErrs = append(allErrs, field.Invalid(fldPath.Child("url"), urlValue, "URL must not contain user information"))
 			}
 		}
 	}
 
-	if httpBackend.TLS != nil {
-		allErrs = append(allErrs, validateClientTLS(httpBackend.TLS, fldPath.Child("tls"))...)
+	if httpOutput.TLS != nil {
+		allErrs = append(allErrs, validateClientTLS(httpOutput.TLS, fldPath.Child("tls"))...)
 	}
 
 	return allErrs

@@ -11,12 +11,12 @@ build:
             - cmd/auditlog-forwarder
             - cmd/auditlog-forwarder/app
             - cmd/auditlog-forwarder/app/options
-            - internal/backend
-            - internal/backend/factory
-            - internal/backend/http
             - internal/context
             - internal/handler/audit
             - internal/helper
+            - internal/output
+            - internal/output/factory
+            - internal/output/http
             - internal/processor
             - internal/processor/annotation
             - pkg/apis/config/v1alpha1
@@ -70,7 +70,7 @@ deploy:
           tls.crt: dev/local/certs/tls.crt
           tls.key: dev/local/certs/tls.key
           tls.clientCA: dev/local/certs/ca.crt
-          backend.clientCrt: dev/local/certs/client.crt
-          backend.clientKey: dev/local/certs/client.key
+          output.clientCrt: dev/local/certs/client.crt
+          output.clientKey: dev/local/certs/client.key
         createNamespace: false
         wait: true

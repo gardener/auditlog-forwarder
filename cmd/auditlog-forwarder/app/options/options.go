@@ -19,8 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/gardener/auditlog-forwarder/internal/backend"
-	backendfactory "github.com/gardener/auditlog-forwarder/internal/backend/factory"
+	"github.com/gardener/auditlog-forwarder/internal/output"
+	outputfactory "github.com/gardener/auditlog-forwarder/internal/output/factory"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 	"github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1/validation"
 )
@@ -90,11 +90,11 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
-	backends, err := backendfactory.NewFromConfigs(o.Config.Backends)
+	outputs, err := outputfactory.NewFromConfigs(o.Config.Outputs)
 	if err != nil {
-		return fmt.Errorf("failed to create backends: %w", err)
+		return fmt.Errorf("failed to create outputs: %w", err)
 	}
-	server.Backends = backends
+	server.Outputs = outputs
 
 	return nil
 }
@@ -147,7 +147,7 @@ func (o *Options) configureClientAuth(tlsConfig *tls.Config, clientCAFile string
 type Config struct {
 	Serving           Serving
 	InjectAnnotations map[string]string
-	Backends          []backend.Backend
+	Outputs           []output.Output
 }
 
 // Serving contains the configuration for the auditlog forwarder.

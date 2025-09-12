@@ -12,7 +12,7 @@ tls:
     MIID...
     -----END CERTIFICATE-----
 
-backend:
+output:
   clientCrt: |
     -----BEGIN CERTIFICATE-----
     MIID...

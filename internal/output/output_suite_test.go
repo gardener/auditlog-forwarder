@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package backend
+package output
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestBackend(t *testing.T) {
+func TestOutput(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Backend Test Suite")
+	RunSpecs(t, "Output Test Suite")
 }

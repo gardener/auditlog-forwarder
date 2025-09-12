@@ -15,8 +15,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 
-	"github.com/gardener/auditlog-forwarder/internal/backend"
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
+	"github.com/gardener/auditlog-forwarder/internal/output"
 	"github.com/gardener/auditlog-forwarder/internal/processor"
 )
 
@@ -26,22 +26,22 @@ const (
 )
 
 // Handler handles incoming audit events.
-// It processes events through configured processors and sends them to configured backends.
+// It processes events through configured processors and sends them to configured outputs.
 type Handler struct {
 	logger     logr.Logger
 	processors []processor.Processor
-	backends   []backend.Backend
+	outputs    []output.Output
 }
 
 // NewHandler creates a new [Handler].
-func NewHandler(logger logr.Logger, processors []processor.Processor, backends []backend.Backend) (*Handler, error) {
-	if len(backends) == 0 {
-		return nil, errors.New("no backends configured")
+func NewHandler(logger logr.Logger, processors []processor.Processor, outputs []output.Output) (*Handler, error) {
+	if len(outputs) == 0 {
+		return nil, errors.New("no outputs configured")
 	}
 	return &Handler{
 		logger:     logger,
 		processors: processors,
-		backends:   backends,
+		outputs:    outputs,
 	}, nil
 }
 
@@ -78,8 +78,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := forwardToBackends(ctx, processedData, h.backends, log); err != nil {
-		log.Error(err, "Failed to forward audit events to backends")
+	if err := forwardToOutputs(ctx, processedData, h.outputs, log); err != nil {
+		log.Error(err, "Failed to forward audit events to outputs")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
 		if _, err := w.Write([]byte(`{"code":500,"message":"failed to forward audit events"}`)); err != nil {
@@ -89,51 +89,51 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Info("Forwarded audit events to all backends")
+	log.Info("Forwarded audit events to all outputs")
 	w.WriteHeader(http.StatusOK)
 }
 
-// forwardToBackends forwards audit events to all configured backends in parallel.
-func forwardToBackends(ctx context.Context,
+// forwardToOutputs forwards audit events to all configured outputs in parallel.
+func forwardToOutputs(ctx context.Context,
 	data []byte,
-	backends []backend.Backend,
+	outputs []output.Output,
 	log logr.Logger,
 ) error {
-	// Single backend, no need to initialize a wait group and spawn goroutines
-	if len(backends) == 1 {
-		backend := backends[0]
-		if err := backend.Send(ctx, data); err != nil {
-			log.Error(err, "Failed to forward to backend", "backend", backend.Name())
-			return fmt.Errorf("backend %s failed: %w", backend.Name(), err)
+	// Single output, no need to initialize a wait group and spawn goroutines
+	if len(outputs) == 1 {
+		output := outputs[0]
+		if err := output.Send(ctx, data); err != nil {
+			log.Error(err, "Failed to forward to output", "output", output.Name())
+			return fmt.Errorf("output %s failed: %w", output.Name(), err)
 		}
 		return nil
 	}
 
 	var wg sync.WaitGroup
-	errCh := make(chan error, len(backends))
+	errCh := make(chan error, len(outputs))
 
-	for _, be := range backends {
+	for _, out := range outputs {
 		wg.Add(1)
-		go func(b backend.Backend) {
+		go func(o output.Output) {
 			defer wg.Done()
-			if err := b.Send(ctx, data); err != nil {
-				log.Error(err, "Failed to forward to backend", "backend", b.Name())
-				errCh <- fmt.Errorf("backend %s failed: %w", b.Name(), err)
+			if err := o.Send(ctx, data); err != nil {
+				log.Error(err, "Failed to forward to output", "output", o.Name())
+				errCh <- fmt.Errorf("output %s failed: %w", o.Name(), err)
 			}
-		}(be)
+		}(out)
 	}
 
 	wg.Wait()
 	close(errCh)
 
-	// Check if any backend failed
+	// Check if any output failed
 	var errs []error
 	for err := range errCh {
 		errs = append(errs, err)
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("one or more backends failed: %v", errs)
+		return fmt.Errorf("one or more outputs failed: %v", errs)
 	}
 
 	return nil

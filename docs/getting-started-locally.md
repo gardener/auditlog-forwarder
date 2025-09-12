@@ -22,7 +22,7 @@ The echo-server acts as a dummy backend that receives and logs the enriched audi
 
 ### 2. Verify setup
 
-Verify that events are successfully processed and sent to configured backends.
+Verify that events are successfully processed and sent to configured outputs.
 
 ```bash
 k -n kube-system logs -l app.kubernetes.io/name=auditlog-forwarder

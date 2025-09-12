@@ -81,7 +81,7 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 		processors = append(processors, annotation.New(conf.InjectAnnotations))
 	}
 
-	auditHandler, err := audit.NewHandler(log, processors, conf.Backends)
+	auditHandler, err := audit.NewHandler(log, processors, conf.Outputs)
 	if err != nil {
 		return fmt.Errorf("failed to create audit handler: %w", err)
 	}

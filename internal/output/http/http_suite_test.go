@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHTTPBackend(t *testing.T) {
+func TestHTTPOutput(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Backend Test Suite")
+	RunSpecs(t, "HTTP Output Test Suite")
 }

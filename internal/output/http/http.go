@@ -25,16 +25,16 @@ const (
 	mimeAppJSON       = "application/json"
 )
 
-// Backend represents an HTTP backend for forwarding audit events.
-type Backend struct {
+// Output represents an HTTP output for forwarding audit events.
+type Output struct {
 	url    string
 	client *http.Client
 }
 
-// New creates a new HTTP backend with the given configuration.
-func New(config *configv1alpha1.HTTPBackend) (*Backend, error) {
+// New creates a new HTTP output with the given configuration.
+func New(config *configv1alpha1.OutputHTTP) (*Output, error) {
 	if config == nil {
-		return nil, fmt.Errorf("HTTP backend configuration is nil")
+		return nil, fmt.Errorf("HTTP output configuration is nil")
 	}
 
 	client, err := createHTTPClient(config.TLS)
@@ -42,24 +42,24 @@ func New(config *configv1alpha1.HTTPBackend) (*Backend, error) {
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
 
-	return &Backend{
+	return &Output{
 		url:    config.URL,
 		client: client,
 	}, nil
 }
 
-// Send sends data to the HTTP backend.
-func (b *Backend) Send(ctx context.Context, data []byte) error {
-	logger := loggerctx.LoggerFromContext(ctx).WithName("http-backend").WithValues("url", b.url)
+// Send sends data to the HTTP output.
+func (o *Output) Send(ctx context.Context, data []byte) error {
+	logger := loggerctx.LoggerFromContext(ctx).WithName("http").WithValues("url", o.url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.url, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set(headerContentType, mimeAppJSON)
 
-	resp, err := b.client.Do(req)
+	resp, err := o.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
@@ -73,16 +73,16 @@ func (b *Backend) Send(ctx context.Context, data []byte) error {
 		if body, err := io.ReadAll(resp.Body); err != nil {
 			logger.Error(err, "failed reading body")
 		} else {
-			return fmt.Errorf("backend returned status %d: %s", resp.StatusCode, string(body))
+			return fmt.Errorf("output returned status %d: %s", resp.StatusCode, string(body))
 		}
 	}
 
 	return nil
 }
 
-// Name returns the URL of this HTTP backend.
-func (b *Backend) Name() string {
-	return b.url
+// Name returns the URL of this HTTP output.
+func (o *Output) Name() string {
+	return o.url
 }
 
 // createHTTPClient creates an HTTP client with optional TLS configuration.

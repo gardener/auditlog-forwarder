@@ -16,12 +16,12 @@ import (
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
-var _ = Describe("HTTP Backend", func() {
+var _ = Describe("HTTP Output", func() {
 	var (
 		testServer   *httptest.Server
 		response     []byte
 		responseCode int
-		backend      *Backend
+		output       *Output
 	)
 
 	BeforeEach(func() {
@@ -44,56 +44,56 @@ var _ = Describe("HTTP Backend", func() {
 	})
 
 	Describe("New", func() {
-		It("should create a new HTTP backend", func() {
-			config := &configv1alpha1.HTTPBackend{
+		It("should create a new HTTP output", func() {
+			config := &configv1alpha1.OutputHTTP{
 				URL: testServer.URL,
 			}
 
 			var err error
-			backend, err = New(config)
+			output, err = New(config)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(backend).NotTo(BeNil())
-			Expect(backend.Name()).To(Equal(testServer.URL))
+			Expect(output).NotTo(BeNil())
+			Expect(output.Name()).To(Equal(testServer.URL))
 		})
 
 		It("should handle nil config", func() {
-			backend, err := New(nil)
+			output, err := New(nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("is nil")))
-			Expect(backend).To(BeNil())
+			Expect(output).To(BeNil())
 		})
 
-		It("should create backend with TLS config", func() {
-			config := &configv1alpha1.HTTPBackend{
+		It("should create output with TLS config", func() {
+			config := &configv1alpha1.OutputHTTP{
 				URL: testServer.URL,
 				TLS: &configv1alpha1.ClientTLS{
 					CAFile: "/nonexistent/ca.pem",
 				},
 			}
 
-			backend, err := New(config)
+			output, err := New(config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("failed to read CA certificate file")))
 			Expect(err).To(MatchError(ContainSubstring("/nonexistent/ca.pem")))
-			Expect(backend).To(BeNil())
+			Expect(output).To(BeNil())
 		})
 	})
 
 	Describe("SendEvents", func() {
 		BeforeEach(func() {
-			config := &configv1alpha1.HTTPBackend{
+			config := &configv1alpha1.OutputHTTP{
 				URL: testServer.URL,
 			}
 
 			var err error
-			backend, err = New(config)
+			output, err = New(config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should send events successfully", func() {
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := backend.Send(context.Background(), testData)
+			err := output.Send(context.Background(), testData)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(response).To(Equal(testData))
@@ -104,9 +104,9 @@ var _ = Describe("HTTP Backend", func() {
 
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := backend.Send(context.Background(), testData)
+			err := output.Send(context.Background(), testData)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring(("backend returned status 500"))))
+			Expect(err).To(MatchError(ContainSubstring(("output returned status 500"))))
 		})
 
 		It("should handle context cancellation", func() {
@@ -115,7 +115,7 @@ var _ = Describe("HTTP Backend", func() {
 
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := backend.Send(ctx, testData)
+			err := output.Send(ctx, testData)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("context canceled")))
 		})

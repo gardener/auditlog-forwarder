@@ -32,9 +32,9 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					KeyFile:  "/path/to/key.pem",
 				},
 			},
-			Backends: []configv1alpha1.Backend{
+			Outputs: []configv1alpha1.Output{
 				{
-					HTTP: &configv1alpha1.HTTPBackend{
+					HTTP: &configv1alpha1.OutputHTTP{
 						URL: "https://example.com/audit",
 					},
 				},
@@ -174,29 +174,29 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		})
 	})
 
-	Context("backends validation", func() {
-		Context("when no backends are configured", func() {
+	Context("outputs validation", func() {
+		Context("when no outputs are configured", func() {
 			It("should return an error", func() {
-				config.Backends = []configv1alpha1.Backend{}
+				config.Outputs = []configv1alpha1.Output{}
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("backends"),
+					"Field": Equal("outputs"),
 				}))))
 			})
 		})
 
-		Context("when multiple backends are configured", func() {
+		Context("when multiple outputs are configured", func() {
 			It("should return an error", func() {
-				config.Backends = []configv1alpha1.Backend{
+				config.Outputs = []configv1alpha1.Output{
 					{
-						HTTP: &configv1alpha1.HTTPBackend{
+						HTTP: &configv1alpha1.OutputHTTP{
 							URL: "https://example1.com/audit",
 						},
 					},
 					{
-						HTTP: &configv1alpha1.HTTPBackend{
+						HTTP: &configv1alpha1.OutputHTTP{
 							URL: "https://example2.com/audit",
 						},
 					},
@@ -205,14 +205,14 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("backends"),
+					"Field": Equal("outputs"),
 				}))))
 			})
 		})
 
-		Context("when backend has no type specified", func() {
+		Context("when output has no type specified", func() {
 			It("should return an error", func() {
-				config.Backends = []configv1alpha1.Backend{
+				config.Outputs = []configv1alpha1.Output{
 					{
 						// No HTTP field specified
 					},
@@ -221,90 +221,90 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("backends[0]"),
+					"Field": Equal("outputs[0]"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend has empty URL", func() {
+		Context("when HTTP output has empty URL", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.URL = ""
+				config.Outputs[0].HTTP.URL = ""
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("backends[0].http.url"),
+					"Field": Equal("outputs[0].http.url"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend has malformed URL", func() {
+		Context("when HTTP output has malformed URL", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.URL = "://invalid-url"
+				config.Outputs[0].HTTP.URL = "://invalid-url"
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("backends[0].http.url"),
+					"Field": Equal("outputs[0].http.url"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend URL is not HTTPS", func() {
+		Context("when HTTP output URL is not HTTPS", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.URL = "http://example.com/audit"
+				config.Outputs[0].HTTP.URL = "http://example.com/audit"
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("backends[0].http.url"),
+					"Field":  Equal("outputs[0].http.url"),
 					"Detail": ContainSubstring("URL scheme must be 'https'"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend URL contains query parameters", func() {
+		Context("when HTTP output URL contains query parameters", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.URL = "https://example.com/audit?param=value"
+				config.Outputs[0].HTTP.URL = "https://example.com/audit?param=value"
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("backends[0].http.url"),
+					"Field":  Equal("outputs[0].http.url"),
 					"Detail": ContainSubstring("URL must not contain query parameters"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend URL contains fragments", func() {
+		Context("when HTTP output URL contains fragments", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.URL = "https://example.com/audit#fragment"
+				config.Outputs[0].HTTP.URL = "https://example.com/audit#fragment"
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("backends[0].http.url"),
+					"Field":  Equal("outputs[0].http.url"),
 					"Detail": ContainSubstring("URL must not contain fragments"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend URL contains user information", func() {
+		Context("when HTTP output URL contains user information", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.URL = "https://user:pass@example.com/audit"
+				config.Outputs[0].HTTP.URL = "https://user:pass@example.com/audit"
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("backends[0].http.url"),
+					"Field":  Equal("outputs[0].http.url"),
 					"Detail": ContainSubstring("URL must not contain user information"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend has valid TLS configuration", func() {
+		Context("when HTTP output has valid TLS configuration", func() {
 			It("should return no errors", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
+				config.Outputs[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					CAFile:   "/path/to/ca.pem",
 					CertFile: "/path/to/client-cert.pem",
 					KeyFile:  "/path/to/client-key.pem",
@@ -315,9 +315,9 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			})
 		})
 
-		Context("when HTTP backend has only cert file without key file", func() {
+		Context("when HTTP output has only cert file without key file", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
+				config.Outputs[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					CertFile: "/path/to/client-cert.pem",
 					// KeyFile is missing
 				}
@@ -325,28 +325,28 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("backends[0].http.tls.keyFile"),
+					"Field": Equal("outputs[0].http.tls.keyFile"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend has only key file without cert file", func() {
+		Context("when HTTP output has only key file without cert file", func() {
 			It("should return an error", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
+				config.Outputs[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					KeyFile: "/path/to/client-key.pem",
 				}
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("backends[0].http.tls.certFile"),
+					"Field": Equal("outputs[0].http.tls.certFile"),
 				}))))
 			})
 		})
 
-		Context("when HTTP backend does not configure client authentication", func() {
+		Context("when HTTP output does not configure client authentication", func() {
 			It("should return no errors", func() {
-				config.Backends[0].HTTP.TLS = &configv1alpha1.ClientTLS{
+				config.Outputs[0].HTTP.TLS = &configv1alpha1.ClientTLS{
 					CAFile: "/path/to/ca.pem",
 				}
 

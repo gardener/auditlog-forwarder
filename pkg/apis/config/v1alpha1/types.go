@@ -32,8 +32,8 @@ type AuditlogForwarder struct {
 	Log Log `json:"log"`
 	// Server contains the server configuration for the audit log forwarder.
 	Server Server `json:"server"`
-	// Backends contains the list of backends to forward audit logs to.
-	Backends []Backend `json:"backends"`
+	// Outputs contains the list of outputs to forward audit logs to.
+	Outputs []Output `json:"outputs"`
 	// InjectAnnotations contains annotations to be injected into audit events.
 	// +optional
 	InjectAnnotations map[string]string `json:"injectAnnotations,omitempty"`
@@ -74,15 +74,15 @@ type TLS struct {
 	ClientCAFile string `json:"clientCAFile,omitempty"`
 }
 
-// Backend defines a backend to forward audit logs to.
-type Backend struct {
-	// HTTP contains the HTTP backend configuration.
+// Output defines an output to forward audit logs to.
+type Output struct {
+	// HTTP contains the HTTP output configuration.
 	// +optional
-	HTTP *HTTPBackend `json:"http,omitempty"`
+	HTTP *OutputHTTP `json:"http,omitempty"`
 }
 
-// HTTPBackend defines the configuration for an HTTP backend.
-type HTTPBackend struct {
+// OutputHTTP defines the configuration for an HTTP output.
+type OutputHTTP struct {
 	// URL is the endpoint URL to send audit logs to.
 	URL string `json:"url"`
 	// TLS contains the TLS configuration for client.
