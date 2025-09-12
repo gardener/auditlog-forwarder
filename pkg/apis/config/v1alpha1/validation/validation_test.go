@@ -315,6 +315,18 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			})
 		})
 
+		Context("when HTTP output has unsupported compression", func() {
+			It("should return an error", func() {
+				config.Outputs[0].HTTP.Compression = "brotli"
+
+				errs := ValidateAuditlogForwarder(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeNotSupported),
+					"Field": Equal("outputs[0].http.compression"),
+				}))))
+			})
+		})
+
 		Context("when HTTP output has only cert file without key file", func() {
 			It("should return an error", func() {
 				config.Outputs[0].HTTP.TLS = &configv1alpha1.ClientTLS{

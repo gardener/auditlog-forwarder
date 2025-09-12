@@ -5,6 +5,8 @@
 package http
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"net/http"
@@ -97,6 +99,41 @@ var _ = Describe("HTTP Output", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(response).To(Equal(testData))
+		})
+
+		It("should send events compressed with gzip when configured", func() {
+			// recreate test server to inspect compression
+			testServer.Close()
+			var receivedEncoding string
+			var receivedBody []byte
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				receivedEncoding = r.Header.Get("Content-Encoding")
+				body, err := io.ReadAll(r.Body)
+				Expect(err).NotTo(HaveOccurred())
+				// decompress
+				gzReader, err := gzip.NewReader(bytes.NewReader(body))
+				Expect(err).NotTo(HaveOccurred())
+				decompressed, err := io.ReadAll(gzReader)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(gzReader.Close()).To(Succeed())
+				receivedBody = decompressed
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			config := &configv1alpha1.OutputHTTP{
+				URL:         testServer.URL,
+				Compression: "gzip",
+			}
+			var err error
+			output, err = New(config)
+			Expect(err).NotTo(HaveOccurred())
+
+			testData := []byte(`{"events": ["test"]}`)
+			err = output.Send(context.Background(), testData)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(receivedEncoding).To(Equal("gzip"))
+			Expect(receivedBody).To(Equal(testData))
 		})
 
 		It("should handle server errors", func() {

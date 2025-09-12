@@ -6,6 +6,7 @@ package http
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -29,6 +30,8 @@ const (
 type Output struct {
 	url    string
 	client *http.Client
+	// compression algorithm to use (currently only "gzip" or empty for none)
+	compression string
 }
 
 // New creates a new HTTP output with the given configuration.
@@ -43,8 +46,9 @@ func New(config *configv1alpha1.OutputHTTP) (*Output, error) {
 	}
 
 	return &Output{
-		url:    config.URL,
-		client: client,
+		url:         config.URL,
+		client:      client,
+		compression: config.Compression,
 	}, nil
 }
 
@@ -52,12 +56,30 @@ func New(config *configv1alpha1.OutputHTTP) (*Output, error) {
 func (o *Output) Send(ctx context.Context, data []byte) error {
 	logger := loggerctx.LoggerFromContext(ctx).WithName("http").WithValues("url", o.url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bytes.NewReader(data))
+	var bodyReader io.Reader
+	if o.compression == "gzip" {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		if _, err := gz.Write(data); err != nil {
+			return fmt.Errorf("failed to gzip data: %w", err)
+		}
+		if err := gz.Close(); err != nil { // flush
+			return fmt.Errorf("failed to finalize gzip writer: %w", err)
+		}
+		bodyReader = &buf
+	} else {
+		bodyReader = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set(headerContentType, mimeAppJSON)
+	if o.compression == "gzip" {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 
 	resp, err := o.client.Do(req)
 	if err != nil {

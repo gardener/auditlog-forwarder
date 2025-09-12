@@ -21,9 +21,8 @@ func Resource(resource string) schema.GroupResource {
 }
 
 var (
-	// SchemeBuilder used to register the Shoot resource.
-	SchemeBuilder      runtime.SchemeBuilder
-	localSchemeBuilder = &SchemeBuilder
+	schemeBuilder      runtime.SchemeBuilder
+	localSchemeBuilder = &schemeBuilder
 	// AddToScheme is a pointer to SchemeBuilder.AddToScheme.
 	AddToScheme = localSchemeBuilder.AddToScheme
 )
