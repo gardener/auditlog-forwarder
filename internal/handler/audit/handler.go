@@ -65,7 +65,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	processedData := body
 	for _, processor := range h.processors {
-		processedData, err = processor.Process(ctx, body)
+		processedData, err = processor.Process(ctx, processedData)
 		if err != nil {
 			log.Error(err, "Processing audit events", "processor", processor.Name())
 			w.Header().Set(headerContentType, mimeAppJSON)
