@@ -6,6 +6,7 @@ package audit
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,18 @@ import (
 	"github.com/gardener/auditlog-forwarder/internal/processor/annotation"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
+
+// testProcessor is a lightweight processor used only for chaining regression tests.
+type testProcessor struct {
+	name      string
+	transform func([]byte) []byte
+}
+
+func (t *testProcessor) Process(_ context.Context, data []byte) ([]byte, error) {
+	return t.transform(data), nil
+}
+
+func (t *testProcessor) Name() string { return t.name }
 
 var _ = Describe("Handler", func() {
 	var (
@@ -95,6 +108,34 @@ var _ = Describe("Handler", func() {
 			var err error
 			handler, err = NewHandler(logger, processors, outputInsts)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should chain multiple processors passing transformed data between them", func() {
+			p1 := processor.Processor(&testProcessor{
+				name:      "p1",
+				transform: func(data []byte) []byte { return append(data, []byte("->B")...) },
+			})
+			p2 := processor.Processor(&testProcessor{
+				name: "p2",
+				transform: func(data []byte) []byte {
+					Expect(string(data)).To(ContainSubstring("A->B"))
+					return append(data, []byte("->C")...)
+				},
+			})
+
+			processorsChained := []processor.Processor{p1, p2}
+			var err error
+			handler, err = NewHandler(logger, processorsChained, outputInsts)
+			Expect(err).NotTo(HaveOccurred())
+
+			initial := []byte("A")
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(initial))
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() bool { return len(response) > 0 }, time.Millisecond*100).Should(BeTrue())
+			Expect(string(response)).To(Equal("A->B->C"))
 		})
 
 		It("should process audit events and forward to outputs", func() {
