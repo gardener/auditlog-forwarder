@@ -6,4 +6,8 @@
 // +k8s:openapi-gen=true
 // +k8s:defaulter-gen=TypeMeta
 
+//go:generate gen-crd-api-reference-docs -api-dir . -config ../../../../hack/api-reference/config.json -template-dir "$GARDENER_HACK_DIR/api-reference/template" -out-file ../../../../docs/api-reference/config.md
+
+// Package v1alpha1 is a version of the API.
+// +groupName=config.auditlog-forwarder.gardener.cloud
 package v1alpha1 // import "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
