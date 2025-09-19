@@ -24,6 +24,9 @@ import (
 const (
 	headerContentType = "Content-Type"
 	mimeAppJSON       = "application/json"
+
+	headerContentEncoding = "Content-Encoding"
+	contentEncodingGzip   = "gzip"
 )
 
 // Output represents an HTTP output for forwarding audit events.
@@ -57,7 +60,7 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 	logger := loggerctx.LoggerFromContext(ctx).WithName("http").WithValues("url", o.url)
 
 	var bodyReader io.Reader
-	if o.compression == "gzip" {
+	if o.compression == contentEncodingGzip {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
 		if _, err := gz.Write(data); err != nil {
@@ -77,8 +80,8 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 	}
 
 	req.Header.Set(headerContentType, mimeAppJSON)
-	if o.compression == "gzip" {
-		req.Header.Set("Content-Encoding", "gzip")
+	if o.compression == contentEncodingGzip {
+		req.Header.Set(headerContentEncoding, contentEncodingGzip)
 	}
 
 	resp, err := o.client.Do(req)

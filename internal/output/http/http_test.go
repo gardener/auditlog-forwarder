@@ -129,8 +129,7 @@ var _ = Describe("HTTP Output", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
-			err = output.Send(context.Background(), testData)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(output.Send(context.Background(), testData)).NotTo(HaveOccurred())
 
 			Expect(receivedEncoding).To(Equal("gzip"))
 			Expect(receivedBody).To(Equal(testData))
