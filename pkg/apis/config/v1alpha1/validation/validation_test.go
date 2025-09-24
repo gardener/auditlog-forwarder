@@ -327,6 +327,15 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			})
 		})
 
+		Context("when HTTP output has supported compression", func() {
+			It("should return no errors", func() {
+				config.Outputs[0].HTTP.Compression = "gzip"
+
+				errs := ValidateAuditlogForwarder(config)
+				Expect(errs).To(BeEmpty())
+			})
+		})
+
 		Context("when HTTP output has only cert file without key file", func() {
 			It("should return an error", func() {
 				config.Outputs[0].HTTP.TLS = &configv1alpha1.ClientTLS{
