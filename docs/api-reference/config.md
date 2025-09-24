@@ -249,6 +249,19 @@ ClientTLS
 <p>TLS contains the TLS configuration for client.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>compression</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Compression defines the compression algorithm to use for the HTTP request body.
+Currently only &ldquo;gzip&rdquo; is supported. If empty, no compression is applied.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.Server">Server
