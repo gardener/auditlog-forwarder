@@ -64,8 +64,13 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
 		if _, err := gz.Write(data); err != nil {
+			// call gz.Close for the sake of completeness
+			// ignore the error as this would probably be the same error as the error returned by gz.Write
+			_ = gz.Close()
 			return fmt.Errorf("failed to gzip data: %w", err)
 		}
+		// explicitly close the writer in order to make it flush residual data and write the gzip footer
+		// we do not use defer here because we want to write all data to the buffer before passing it to the http request
 		if err := gz.Close(); err != nil { // flush
 			return fmt.Errorf("failed to finalize gzip writer: %w", err)
 		}
