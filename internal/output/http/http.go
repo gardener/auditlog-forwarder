@@ -6,6 +6,7 @@ package http
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -23,12 +24,17 @@ import (
 const (
 	headerContentType = "Content-Type"
 	mimeAppJSON       = "application/json"
+
+	headerContentEncoding = "Content-Encoding"
+	contentEncodingGzip   = "gzip"
 )
 
 // Output represents an HTTP output for forwarding audit events.
 type Output struct {
 	url    string
 	client *http.Client
+	// compression algorithm to use (currently only "gzip" or empty for none)
+	compression string
 }
 
 // New creates a new HTTP output with the given configuration.
@@ -43,8 +49,9 @@ func New(config *configv1alpha1.OutputHTTP) (*Output, error) {
 	}
 
 	return &Output{
-		url:    config.URL,
-		client: client,
+		url:         config.URL,
+		client:      client,
+		compression: config.Compression,
 	}, nil
 }
 
@@ -52,12 +59,35 @@ func New(config *configv1alpha1.OutputHTTP) (*Output, error) {
 func (o *Output) Send(ctx context.Context, data []byte) error {
 	logger := loggerctx.LoggerFromContext(ctx).WithName("http").WithValues("url", o.url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bytes.NewReader(data))
+	var bodyReader io.Reader
+	if o.compression == contentEncodingGzip {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		if _, err := gz.Write(data); err != nil {
+			// call gz.Close for the sake of completeness
+			// ignore the error as this would probably be the same error as the error returned by gz.Write
+			_ = gz.Close()
+			return fmt.Errorf("failed to gzip data: %w", err)
+		}
+		// explicitly close the writer in order to make it flush residual data and write the gzip footer
+		// we do not use defer here because we want to write all data to the buffer before passing it to the http request
+		if err := gz.Close(); err != nil { // flush
+			return fmt.Errorf("failed to finalize gzip writer: %w", err)
+		}
+		bodyReader = &buf
+	} else {
+		bodyReader = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set(headerContentType, mimeAppJSON)
+	if o.compression == contentEncodingGzip {
+		req.Header.Set(headerContentEncoding, contentEncodingGzip)
+	}
 
 	resp, err := o.client.Do(req)
 	if err != nil {

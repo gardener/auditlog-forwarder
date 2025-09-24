@@ -175,6 +175,12 @@ func validateOutputHTTP(httpOutput *configv1alpha1.OutputHTTP, fldPath *field.Pa
 		allErrs = append(allErrs, validateClientTLS(httpOutput.TLS, fldPath.Child("tls"))...)
 	}
 
+	if compression := strings.TrimSpace(httpOutput.Compression); compression != "" {
+		if compression != "gzip" {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("compression"), compression, []string{"gzip"}))
+		}
+	}
+
 	return allErrs
 }
 

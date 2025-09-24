@@ -17,6 +17,7 @@ server:
 outputs:
 - http:
     url: https://example.com/v1/logs
+    # compression: gzip
     tls:
       caFile: /etc/ssl/certs/ca-certificates.crt
       certFile: /etc/certs/client-cert.pem # optional - used for mutual TLS

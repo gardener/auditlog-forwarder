@@ -88,6 +88,10 @@ type OutputHTTP struct {
 	// TLS contains the TLS configuration for client.
 	// +optional
 	TLS *ClientTLS `json:"tls,omitempty"`
+	// Compression defines the compression algorithm to use for the HTTP request body.
+	// Currently only "gzip" is supported. If empty, no compression is applied.
+	// +optional
+	Compression string `json:"compression,omitempty"`
 }
 
 // ClientTLS defines the TLS configuration for client.
