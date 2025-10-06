@@ -1,3 +1,5 @@
+name: github.com/gardener/auditlog-forwarder
+
 labels:
   - name: cloud.gardener.cnudie/responsibles
     value:
