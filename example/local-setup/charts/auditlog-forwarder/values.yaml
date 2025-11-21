@@ -33,4 +33,5 @@ config:
 
   server:
     port: 10443
+    metricsPort: 8080
     address: ""

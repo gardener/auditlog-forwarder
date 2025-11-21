@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/component-base/version"
@@ -86,31 +87,52 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 		return fmt.Errorf("failed to create audit handler: %w", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.Handle("POST /audit", auditHandler)
+	muxAudit := http.NewServeMux()
+	muxAudit.Handle("POST /audit", auditHandler)
 
-	srv := &http.Server{
+	srvAudit := &http.Server{
 		Addr:         conf.Serving.Address,
-		Handler:      mux,
+		Handler:      muxAudit,
 		TLSConfig:    conf.Serving.TLSConfig,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
 
-	return runServer(ctx, log, srv)
+	muxMetrics := http.NewServeMux()
+	muxMetrics.Handle("GET /metrics", promhttp.Handler())
+
+	srvMetrics := &http.Server{
+		Addr:         conf.Serving.MetricsAddress,
+		Handler:      muxMetrics,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+	}
+
+	return runServer(ctx, log, srvAudit, srvMetrics)
 }
 
 // runServer starts the auditlog forwarder server. It returns if the context is canceled or the server cannot start initially.
-func runServer(ctx context.Context, log logr.Logger, srv *http.Server) error {
+func runServer(ctx context.Context, log logr.Logger, srvAudit, srvMetrics *http.Server) error {
 	log = log.WithName("auditlog-forwarder")
 	errCh := make(chan error)
+
 	go func(errCh chan<- error) {
-		log.Info("Starts listening", "address", srv.Addr)
+		log.Info("Starts server audit listening", "address", srvAudit.Addr)
 		defer close(errCh)
-		if err := srv.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := srvAudit.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("failed serving content: %w", err)
 		} else {
-			log.Info("Server stopped listening")
+			log.Info("Server audit stopped listening")
+		}
+	}(errCh)
+
+	go func(errCh chan<- error) {
+		log.Info("Starts server metrics listening", "address", srvMetrics.Addr)
+		defer close(errCh)
+		if err := srvMetrics.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("failed serving content: %w", err)
+		} else {
+			log.Info("Server metrics stopped listening")
 		}
 	}(errCh)
 
@@ -121,9 +143,17 @@ func runServer(ctx context.Context, log logr.Logger, srv *http.Server) error {
 		log.Info("Shutting down")
 		cancelCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
-		err := srv.Shutdown(cancelCtx)
+		var errors []error
+		err := srvAudit.Shutdown(cancelCtx)
 		if err != nil {
-			return fmt.Errorf("auditlog forwarder server failed graceful shutdown: %w", err)
+			errors = append(errors, fmt.Errorf("auditlog forwarder server failed graceful shutdown: %w", err))
+		}
+		err = srvMetrics.Shutdown(cancelCtx)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("metrics server failed graceful shutdown: %w", err))
+		}
+		if len(errors) > 0 {
+			return fmt.Errorf("errors during shutdown: %v", errors)
 		}
 		log.Info("Shutdown successful")
 		return nil

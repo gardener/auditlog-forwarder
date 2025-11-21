@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -15,6 +16,9 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	dto "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -76,6 +80,11 @@ var _ = Describe("Handler", func() {
 		var err error
 		outputInsts, err = outputfactory.NewFromConfigs(outputConfigs)
 		Expect(err).NotTo(HaveOccurred())
+
+		// reinitialize metrics before each test
+		auditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		auditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		auditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
 	})
 
 	AfterEach(func() {
@@ -136,6 +145,10 @@ var _ = Describe("Handler", func() {
 
 			Eventually(func() bool { return len(response) > 0 }, time.Millisecond*100).Should(BeTrue())
 			Expect(string(response)).To(Equal("A->B->C"))
+
+			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(auditSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(auditFailed)).To(Equal(0.0))
 		})
 
 		It("should process audit events and forward to outputs", func() {
@@ -180,6 +193,10 @@ var _ = Describe("Handler", func() {
 			event := forwardedEventList.Items[0]
 			Expect(event.Annotations).To(HaveKeyWithValue("test-key", "test-value"))
 			Expect(event.Annotations).To(HaveKeyWithValue("existing", "annotation"))
+
+			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(auditSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(auditFailed)).To(Equal(0.0))
 		})
 
 		It("should return error when output fails", func() {
@@ -208,6 +225,11 @@ var _ = Describe("Handler", func() {
 			handler.ServeHTTP(w, req)
 
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+			Expect(w.Body.String()).To(ContainSubstring("failed to forward audit events"))
+
+			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(auditSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(auditFailed)).To(Equal(1.0))
 		})
 
 		It("should handle malformed request body", func() {
@@ -218,6 +240,71 @@ var _ = Describe("Handler", func() {
 			handler.ServeHTTP(w, req)
 
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+			Expect(w.Body.String()).To(ContainSubstring("failed processing audit events"))
+
+			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(auditSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(auditFailed)).To(Equal(1.0))
+		})
+
+		It("should return error when reading request fails", func() {
+			req := httptest.NewRequest(http.MethodPost, "/audit", io.NopCloser(&errorReader{}))
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+			Expect(w.Body.String()).To(ContainSubstring("failed reading body request"))
+
+			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(auditSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(auditFailed)).To(Equal(1.0))
 		})
 	})
 })
+
+// errorReader is a reader that always returns an error
+type errorReader struct{}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+// getMetricValue returns the sum of the Counter metrics associated with the Collector
+// e.g. the metric for a non-vector, or the sum of the metrics for vector labels.
+// If the metric is a Histogram then number of samples is used.
+func getMetricValue(col prometheus.Collector) float64 {
+	var total float64
+	collect(col, func(m *dto.Metric) {
+		if h := m.GetHistogram(); h != nil {
+			total += float64(h.GetSampleCount())
+		} else {
+			total += m.GetCounter().GetValue()
+		}
+	})
+	return total
+}
+
+// collect calls the function for each metric associated with the Collector
+func collect(col prometheus.Collector, do func(*dto.Metric)) {
+	c := make(chan prometheus.Metric)
+	go func(c chan prometheus.Metric) {
+		col.Collect(c)
+		close(c)
+	}(c)
+	for x := range c { // eg range across distinct label vector values
+		m := dto.Metric{}
+		_ = x.Write(&m)
+		do(&m)
+	}
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
