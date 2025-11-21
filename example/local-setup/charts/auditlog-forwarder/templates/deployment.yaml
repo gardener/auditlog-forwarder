@@ -27,8 +27,11 @@ spec:
         args:
         - --config=/config/config.yaml
         ports:
-        - name: port
+        - name: https
           containerPort: {{ .Values.config.server.port }}
+          protocol: TCP
+        - name: metrics
+          containerPort: {{ .Values.config.server.metricsPort }}
           protocol: TCP
         volumeMounts:
         - name: tls
