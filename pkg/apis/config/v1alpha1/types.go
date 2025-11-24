@@ -60,6 +60,9 @@ type Server struct {
 	Address string `json:"address,omitempty"`
 	// TLS contains the TLS configuration for the server.
 	TLS TLS `json:"tls"`
+	// MetricsPort is the port that the server will listen on for metrics.
+	// +optional
+	MetricsPort uint `json:"metricsPort,omitempty"`
 }
 
 // TLS defines the TLS configuration for the server.

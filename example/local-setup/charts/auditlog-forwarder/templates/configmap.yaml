@@ -11,19 +11,20 @@ data:
   config.yaml: |
     apiVersion: config.auditlog-forwarder.gardener.cloud/v1alpha1
     kind: AuditlogForwarder
-    
+
     log:
       level: {{ .Values.config.log.level }}
       format: {{ .Values.config.log.format }}
-    
+
     server:
       port: {{ .Values.config.server.port }}
+      metricsPort: {{ .Values.config.server.metricsPort }}
       address: {{ .Values.config.server.address }}
       tls:
         certFile: /tls/tls.crt
         keyFile: /tls/tls.key
         clientCAFile: /ca/ca.crt
-    
+
     outputs:
     - http:
         url: https://echo-server.kube-system.svc.cluster.local:443/audit
@@ -31,7 +32,7 @@ data:
           caFile: /ca/ca.crt
           certFile: /client-certs/client.crt
           keyFile: /client-certs/client.key
-    
+
     injectAnnotations:
       environment: local-kind
       deployment: auditlog-forwarder-test

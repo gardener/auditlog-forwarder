@@ -26,7 +26,8 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				Format: configv1alpha1.LogFormatJSON,
 			},
 			Server: configv1alpha1.Server{
-				Port: 10443,
+				Port:        10443,
+				MetricsPort: 8080,
 				TLS: configv1alpha1.TLS{
 					CertFile: "/path/to/cert.pem",
 					KeyFile:  "/path/to/key.pem",
@@ -62,6 +63,18 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeRequired),
 				"Field": Equal("server.port"),
+			}))))
+		})
+	})
+
+	Context("when server metrics port is missing", func() {
+		It("should return an error", func() {
+			config.Server.MetricsPort = 0
+
+			errs := ValidateAuditlogForwarder(config)
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeRequired),
+				"Field": Equal("server.metricsPort"),
 			}))))
 		})
 	})
