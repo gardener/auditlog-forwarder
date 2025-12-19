@@ -34,6 +34,14 @@ linters:
       - third_party$
       - builtin$
       - examples$
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          arguments:
+            - []
+            - []
+            - - skip-package-name-collision-with-go-std: true
 formatters:
   exclusions:
     generated: lax
