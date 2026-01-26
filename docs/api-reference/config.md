@@ -285,12 +285,26 @@ Currently only &ldquo;gzip&rdquo; is supported. If empty, no compression is appl
 <td>
 <code>port</code></br>
 <em>
-uint
+int32
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Port is the port that the server will listen on.</p>
+<p>Port is the port that the server will listen on.
+Defaults to 10443.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>metricsPort</code></br>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MetricsPort is the port that the server will listen on to serve metrics.
+Defaults to 8080.</p>
 </td>
 </tr>
 <tr>

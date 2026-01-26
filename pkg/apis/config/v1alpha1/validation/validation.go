@@ -65,9 +65,15 @@ func validateServer(serverConfig *configv1alpha1.Server, fldPath *field.Path) fi
 	if serverConfig.Port == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("port"), "port is required"))
 	}
+	if serverConfig.Port < 0 || serverConfig.Port > 65535 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("port"), serverConfig.Port, "port must be between 0 and 65535"))
+	}
 
 	if serverConfig.MetricsPort == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("metricsPort"), "metrics port is required"))
+	}
+	if serverConfig.MetricsPort < 0 || serverConfig.MetricsPort > 65535 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("metricsPort"), serverConfig.MetricsPort, "metrics port must be between 0 and 65535"))
 	}
 
 	allErrs = append(allErrs, validateTLS(&serverConfig.TLS, fldPath.Child("tls"))...)

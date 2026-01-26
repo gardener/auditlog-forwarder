@@ -55,8 +55,8 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		})
 	})
 
-	Context("when server port is missing", func() {
-		It("should return an error", func() {
+	Context("when server port is misconfigured", func() {
+		It("should return an error when port is missing", func() {
 			config.Server.Port = 0
 
 			errs := ValidateAuditlogForwarder(config)
@@ -65,16 +65,38 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				"Field": Equal("server.port"),
 			}))))
 		})
+
+		It("should return an error when port is invalid", func() {
+			config.Server.Port = -1
+
+			errs := ValidateAuditlogForwarder(config)
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("server.port"),
+				"Detail": ContainSubstring("port must be between 0 and 65535"),
+			}))))
+		})
 	})
 
-	Context("when server metrics port is missing", func() {
-		It("should return an error", func() {
+	Context("when server metrics port is misconfigured", func() {
+		It("should return an error when metrics port is missing", func() {
 			config.Server.MetricsPort = 0
 
 			errs := ValidateAuditlogForwarder(config)
 			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeRequired),
 				"Field": Equal("server.metricsPort"),
+			}))))
+		})
+
+		It("should return an error when metrics port is invalid", func() {
+			config.Server.MetricsPort = -1
+
+			errs := ValidateAuditlogForwarder(config)
+			Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("server.metricsPort"),
+				"Detail": ContainSubstring("metrics port must be between 0 and 65535"),
 			}))))
 		})
 	})

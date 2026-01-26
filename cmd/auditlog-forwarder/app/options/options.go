@@ -89,7 +89,7 @@ func (o *Options) ApplyTo(server *Config) error {
 	}
 
 	serverConfig := o.Config.Server
-	server.Serving.MetricsAddress = net.JoinHostPort(serverConfig.Address, strconv.FormatUint(uint64(serverConfig.MetricsPort), 10))
+	server.Serving.MetricsAddress = net.JoinHostPort(serverConfig.Address, strconv.FormatInt(int64(serverConfig.MetricsPort), 10))
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
@@ -105,7 +105,7 @@ func (o *Options) ApplyTo(server *Config) error {
 // applyServerConfigToServing applies server configuration to serving config
 func (o *Options) applyServerConfigToServing(serving *Serving) error {
 	serverConfig := o.Config.Server
-	serving.Address = net.JoinHostPort(serverConfig.Address, strconv.FormatUint(uint64(serverConfig.Port), 10))
+	serving.Address = net.JoinHostPort(serverConfig.Address, strconv.FormatInt(int64(serverConfig.Port), 10))
 
 	serverCert, err := tls.LoadX509KeyPair(serverConfig.TLS.CertFile, serverConfig.TLS.KeyFile)
 	if err != nil {
