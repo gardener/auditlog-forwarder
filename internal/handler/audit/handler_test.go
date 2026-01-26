@@ -23,6 +23,7 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/gardener/auditlog-forwarder/internal/helper"
+	"github.com/gardener/auditlog-forwarder/internal/metrics"
 	"github.com/gardener/auditlog-forwarder/internal/output"
 	outputfactory "github.com/gardener/auditlog-forwarder/internal/output/factory"
 	"github.com/gardener/auditlog-forwarder/internal/processor"
@@ -82,9 +83,9 @@ var _ = Describe("Handler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// reinitialize metrics before each test
-		auditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
-		auditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
-		auditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		metrics.AuditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		metrics.AuditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		metrics.AuditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
 	})
 
 	AfterEach(func() {
@@ -146,9 +147,9 @@ var _ = Describe("Handler", func() {
 			Eventually(func() bool { return len(response) > 0 }, time.Millisecond*100).Should(BeTrue())
 			Expect(string(response)).To(Equal("A->B->C"))
 
-			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
-			Expect(getMetricValue(auditSucceeded)).To(Equal(1.0))
-			Expect(getMetricValue(auditFailed)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(0.0))
 		})
 
 		It("should process audit events and forward to outputs", func() {
@@ -194,9 +195,9 @@ var _ = Describe("Handler", func() {
 			Expect(event.Annotations).To(HaveKeyWithValue("test-key", "test-value"))
 			Expect(event.Annotations).To(HaveKeyWithValue("existing", "annotation"))
 
-			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
-			Expect(getMetricValue(auditSucceeded)).To(Equal(1.0))
-			Expect(getMetricValue(auditFailed)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(0.0))
 		})
 
 		It("should return error when output fails", func() {
@@ -225,11 +226,11 @@ var _ = Describe("Handler", func() {
 			handler.ServeHTTP(w, req)
 
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
-			Expect(w.Body.String()).To(ContainSubstring("failed to forward audit events"))
+			Expect(w.Body.String()).To(ContainSubstring("failed forwarding audit events"))
 
-			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
-			Expect(getMetricValue(auditSucceeded)).To(Equal(0.0))
-			Expect(getMetricValue(auditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
 		})
 
 		It("should handle malformed request body", func() {
@@ -242,9 +243,9 @@ var _ = Describe("Handler", func() {
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 			Expect(w.Body.String()).To(ContainSubstring("failed processing audit events"))
 
-			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
-			Expect(getMetricValue(auditSucceeded)).To(Equal(0.0))
-			Expect(getMetricValue(auditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
 		})
 
 		It("should return error when reading request fails", func() {
@@ -256,9 +257,9 @@ var _ = Describe("Handler", func() {
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 			Expect(w.Body.String()).To(ContainSubstring("failed reading body request"))
 
-			Expect(getMetricValue(auditReceived)).To(Equal(1.0))
-			Expect(getMetricValue(auditSucceeded)).To(Equal(0.0))
-			Expect(getMetricValue(auditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
 		})
 	})
 })

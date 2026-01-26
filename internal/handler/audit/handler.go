@@ -14,10 +14,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
+	"github.com/gardener/auditlog-forwarder/internal/metrics"
 	"github.com/gardener/auditlog-forwarder/internal/output"
 	"github.com/gardener/auditlog-forwarder/internal/processor"
 )
@@ -25,23 +24,6 @@ import (
 const (
 	headerContentType = "Content-Type"
 	mimeAppJSON       = "application/json"
-)
-
-var (
-	auditReceived = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "auditlog_forwarder_received_total",
-		Help: "Total number of received audit events",
-	})
-
-	auditSucceeded = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "auditlog_forwarder_succeeded_total",
-		Help: "Total number of successfully processed audit events",
-	})
-
-	auditFailed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "auditlog_forwarder_failed_total",
-		Help: "Total number of failed processed audit events",
-	})
 )
 
 // Handler handles incoming audit events.
@@ -65,7 +47,7 @@ func NewHandler(logger logr.Logger, processors []processor.Processor, outputs []
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	auditReceived.Inc()
+	metrics.AuditReceived.Inc()
 
 	log := h.logger.WithValues("req_id", uuid.NewString())
 	body, err := io.ReadAll(r.Body)
@@ -74,7 +56,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
 		writeErrorResponse(w, log, http.StatusInternalServerError, "failed reading body request")
-		auditFailed.Inc()
+		metrics.AuditFailed.Inc()
 		return
 	}
 
@@ -89,7 +71,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(headerContentType, mimeAppJSON)
 			w.WriteHeader(http.StatusInternalServerError)
 			writeErrorResponse(w, log, http.StatusInternalServerError, "failed processing audit events")
-			auditFailed.Inc()
+			metrics.AuditFailed.Inc()
 			return
 		}
 	}
@@ -98,14 +80,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Error(err, "Failed to forward audit events to outputs")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
-		writeErrorResponse(w, log, http.StatusInternalServerError, "failed to forward audit events")
-		auditFailed.Inc()
+		writeErrorResponse(w, log, http.StatusInternalServerError, "failed forwarding audit events")
+		metrics.AuditFailed.Inc()
 		return
 	}
 
 	log.Info("Forwarded audit events to all outputs")
 	w.WriteHeader(http.StatusOK)
-	auditSucceeded.Inc()
+	metrics.AuditSucceeded.Inc()
 }
 
 func writeErrorResponse(w http.ResponseWriter, log logr.Logger, statusCode int, message string) {
