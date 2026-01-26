@@ -295,7 +295,7 @@ func collect(col prometheus.Collector, do func(*prommodels.Metric)) {
 	}(c)
 	for x := range c { // eg range across distinct label vector values
 		m := prommodels.Metric{}
-		_ = x.Write(&m)
+		Expect(x.Write(&m)).To(Succeed())
 		do(&m)
 	}
 }
