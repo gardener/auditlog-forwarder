@@ -108,31 +108,47 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 		WriteTimeout: 15 * time.Second,
 	}
 
-	return runServer(ctx, log, srvAudit, srvMetrics)
+	srvAuditCh := make(chan error)
+	srvAuditCtx, cancelSrvAudit := context.WithCancel(ctx)
+
+	srvMetricsCh := make(chan error)
+	srvMetricsCtx, cancelSrvMetrics := context.WithCancel(ctx)
+
+	go func(ch chan<- error) {
+		defer cancelSrvAudit()
+		ch <- runServer(srvAuditCtx, log, "audit-server", true, srvAudit)
+	}(srvAuditCh)
+
+	go func(ch chan<- error) {
+		defer cancelSrvMetrics()
+		ch <- runServer(srvMetricsCtx, log, "metrics-server", false, srvMetrics)
+	}(srvMetricsCh)
+
+	select {
+	case err := <-srvMetricsCh:
+		return errors.Join(err, <-srvAuditCh)
+	case err := <-srvAuditCh:
+		return errors.Join(err, <-srvMetricsCh)
+	}
 }
 
-// runServer starts the auditlog forwarder server. It returns if the context is canceled or the server cannot start initially.
-func runServer(ctx context.Context, log logr.Logger, srvAudit, srvMetrics *http.Server) error {
-	log = log.WithName("auditlog-forwarder")
+// runServer starts a server. It returns if the context is canceled or the server cannot start initially.
+func runServer(ctx context.Context, log logr.Logger, name string, serveTLS bool, srv *http.Server) error {
+	log = log.WithName(name)
 	errCh := make(chan error)
 
 	go func(errCh chan<- error) {
-		log.Info("Starts server audit listening", "address", srvAudit.Addr)
+		log.Info("Starts server listening", "address", srv.Addr)
 		defer close(errCh)
-		if err := srvAudit.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- fmt.Errorf("failed serving content: %w", err)
-		} else {
-			log.Info("Server audit stopped listening")
+		serveFunc := func() error { return srv.ListenAndServeTLS("", "") }
+		if !serveTLS {
+			serveFunc = func() error { return srv.ListenAndServe() }
 		}
-	}(errCh)
 
-	go func(errCh chan<- error) {
-		log.Info("Starts server metrics listening", "address", srvMetrics.Addr)
-		defer close(errCh)
-		if err := srvMetrics.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := serveFunc(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("failed serving content: %w", err)
 		} else {
-			log.Info("Server metrics stopped listening")
+			log.Info("Server stopped listening")
 		}
 	}(errCh)
 
@@ -143,17 +159,9 @@ func runServer(ctx context.Context, log logr.Logger, srvAudit, srvMetrics *http.
 		log.Info("Shutting down")
 		cancelCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
-		var errors []error
-		err := srvAudit.Shutdown(cancelCtx)
+		err := srv.Shutdown(cancelCtx)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("auditlog forwarder server failed graceful shutdown: %w", err))
-		}
-		err = srvMetrics.Shutdown(cancelCtx)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("metrics server failed graceful shutdown: %w", err))
-		}
-		if len(errors) > 0 {
-			return fmt.Errorf("errors during shutdown: %v", errors)
+			return fmt.Errorf("server failed graceful shutdown: %w", err)
 		}
 		log.Info("Shutdown successful")
 		return nil
