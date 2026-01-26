@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	dto "github.com/prometheus/client_model/go"
+	prommodels "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -276,7 +276,7 @@ func (e *errorReader) Read(p []byte) (n int, err error) {
 // If the metric is a Histogram then number of samples is used.
 func getMetricValue(col prometheus.Collector) float64 {
 	var total float64
-	collect(col, func(m *dto.Metric) {
+	collect(col, func(m *prommodels.Metric) {
 		if h := m.GetHistogram(); h != nil {
 			total += float64(h.GetSampleCount())
 		} else {
@@ -287,14 +287,14 @@ func getMetricValue(col prometheus.Collector) float64 {
 }
 
 // collect calls the function for each metric associated with the Collector
-func collect(col prometheus.Collector, do func(*dto.Metric)) {
+func collect(col prometheus.Collector, do func(*prommodels.Metric)) {
 	c := make(chan prometheus.Metric)
 	go func(c chan prometheus.Metric) {
 		col.Collect(c)
 		close(c)
 	}(c)
 	for x := range c { // eg range across distinct label vector values
-		m := dto.Metric{}
+		m := prommodels.Metric{}
 		_ = x.Write(&m)
 		do(&m)
 	}
