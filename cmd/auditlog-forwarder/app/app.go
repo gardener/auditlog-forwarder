@@ -115,12 +115,12 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 	srvMetricsCtx, cancelSrvMetrics := context.WithCancel(ctx)
 
 	go func(ch chan<- error) {
-		defer cancelSrvAudit()
+		defer cancelSrvMetrics()
 		ch <- runServer(srvAuditCtx, log, "audit-server", true, srvAudit)
 	}(srvAuditCh)
 
 	go func(ch chan<- error) {
-		defer cancelSrvMetrics()
+		defer cancelSrvAudit()
 		ch <- runServer(srvMetricsCtx, log, "metrics-server", false, srvMetrics)
 	}(srvMetricsCh)
 
