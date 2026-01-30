@@ -14,6 +14,12 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
   - port: 443
+    name: https
     protocol: TCP
     targetPort: {{ .Values.config.server.port }}
     nodePort: 30021
+  - port: 8080
+    name: metrics
+    protocol: TCP
+    targetPort: {{ .Values.config.server.metricsPort }}
+    nodePort: 30022

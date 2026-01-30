@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/component-base/version"
@@ -86,28 +87,65 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 		return fmt.Errorf("failed to create audit handler: %w", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.Handle("POST /audit", auditHandler)
+	muxAudit := http.NewServeMux()
+	muxAudit.Handle("POST /audit", auditHandler)
 
-	srv := &http.Server{
+	srvAudit := &http.Server{
 		Addr:         conf.Serving.Address,
-		Handler:      mux,
+		Handler:      muxAudit,
 		TLSConfig:    conf.Serving.TLSConfig,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
 
-	return runServer(ctx, log, srv)
+	muxMetrics := http.NewServeMux()
+	muxMetrics.Handle("GET /metrics", promhttp.Handler())
+
+	srvMetrics := &http.Server{
+		Addr:         conf.Serving.MetricsAddress,
+		Handler:      muxMetrics,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+	}
+
+	srvAuditCh := make(chan error)
+	srvAuditCtx, cancelSrvAudit := context.WithCancel(ctx)
+
+	srvMetricsCh := make(chan error)
+	srvMetricsCtx, cancelSrvMetrics := context.WithCancel(ctx)
+
+	go func(ch chan<- error) {
+		defer cancelSrvMetrics()
+		ch <- runServer(srvAuditCtx, log, "audit-server", true, srvAudit)
+	}(srvAuditCh)
+
+	go func(ch chan<- error) {
+		defer cancelSrvAudit()
+		ch <- runServer(srvMetricsCtx, log, "metrics-server", false, srvMetrics)
+	}(srvMetricsCh)
+
+	select {
+	case err := <-srvMetricsCh:
+		return errors.Join(err, <-srvAuditCh)
+	case err := <-srvAuditCh:
+		return errors.Join(err, <-srvMetricsCh)
+	}
 }
 
-// runServer starts the auditlog forwarder server. It returns if the context is canceled or the server cannot start initially.
-func runServer(ctx context.Context, log logr.Logger, srv *http.Server) error {
-	log = log.WithName("auditlog-forwarder")
+// runServer starts a server. It returns if the context is canceled or the server cannot start initially.
+func runServer(ctx context.Context, log logr.Logger, name string, serveTLS bool, srv *http.Server) error {
+	log = log.WithName(name)
 	errCh := make(chan error)
+
 	go func(errCh chan<- error) {
-		log.Info("Starts listening", "address", srv.Addr)
+		log.Info("Starts server listening", "address", srv.Addr)
 		defer close(errCh)
-		if err := srv.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		serveFunc := func() error { return srv.ListenAndServeTLS("", "") }
+		if !serveTLS {
+			serveFunc = func() error { return srv.ListenAndServe() }
+		}
+
+		if err := serveFunc(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("failed serving content: %w", err)
 		} else {
 			log.Info("Server stopped listening")
@@ -123,7 +161,7 @@ func runServer(ctx context.Context, log logr.Logger, srv *http.Server) error {
 		defer cancel()
 		err := srv.Shutdown(cancelCtx)
 		if err != nil {
-			return fmt.Errorf("auditlog forwarder server failed graceful shutdown: %w", err)
+			return fmt.Errorf("server failed graceful shutdown: %w", err)
 		}
 		log.Info("Shutdown successful")
 		return nil

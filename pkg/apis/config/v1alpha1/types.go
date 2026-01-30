@@ -52,8 +52,13 @@ type Log struct {
 // Server defines the server configuration for the audit log forwarder.
 type Server struct {
 	// Port is the port that the server will listen on.
+	// Defaults to 10443.
 	// +optional
-	Port uint `json:"port,omitempty"`
+	Port int32 `json:"port,omitempty"`
+	// MetricsPort is the port that the server will listen on to serve metrics.
+	// Defaults to 8080.
+	// +optional
+	MetricsPort int32 `json:"metricsPort,omitempty"`
 	// Address is the IP address that the server will listen on.
 	// If unspecified all interfaces will be used.
 	// +optional

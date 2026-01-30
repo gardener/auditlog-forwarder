@@ -7,8 +7,9 @@ log:
 
 server:
   port: 10443
+  metricsPort: 8080
   address: ""
-  
+
   tls:
     certFile: "/etc/certs/tls.crt"
     keyFile: "/etc/certs/tls.key"

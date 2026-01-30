@@ -31,19 +31,27 @@ var _ = Describe("Defaults", func() {
 		It("should default the server port", func() {
 			SetDefaults_AuditlogForwarder(obj)
 
-			Expect(obj.Server.Port).To(Equal(uint(10443)))
+			Expect(obj.Server.Port).To(Equal(int32(10443)))
+		})
+
+		It("should default the server metrics port", func() {
+			SetDefaults_AuditlogForwarder(obj)
+
+			Expect(obj.Server.MetricsPort).To(Equal(int32(8080)))
 		})
 
 		It("should not override existing values", func() {
 			obj.Log.Level = LogLevelDebug
 			obj.Log.Format = LogFormatText
 			obj.Server.Port = 8080
+			obj.Server.MetricsPort = 9090
 
 			SetDefaults_AuditlogForwarder(obj)
 
 			Expect(obj.Log.Level).To(Equal(LogLevelDebug))
 			Expect(obj.Log.Format).To(Equal(LogFormatText))
-			Expect(obj.Server.Port).To(Equal(uint(8080)))
+			Expect(obj.Server.Port).To(Equal(int32(8080)))
+			Expect(obj.Server.MetricsPort).To(Equal(int32(9090)))
 		})
 	})
 
@@ -91,7 +99,13 @@ var _ = Describe("Defaults", func() {
 		It("should default the port to 10443", func() {
 			SetDefaults_Server(serverConfig)
 
-			Expect(serverConfig.Port).To(Equal(uint(10443)))
+			Expect(serverConfig.Port).To(Equal(int32(10443)))
+		})
+
+		It("should default the metrics port to 8080", func() {
+			SetDefaults_Server(serverConfig)
+
+			Expect(serverConfig.MetricsPort).To(Equal(int32(8080)))
 		})
 
 		It("should not override existing port value", func() {
@@ -99,7 +113,15 @@ var _ = Describe("Defaults", func() {
 
 			SetDefaults_Server(serverConfig)
 
-			Expect(serverConfig.Port).To(Equal(uint(8080)))
+			Expect(serverConfig.Port).To(Equal(int32(8080)))
+		})
+
+		It("should not override existing metrics port value", func() {
+			serverConfig.MetricsPort = 8090
+
+			SetDefaults_Server(serverConfig)
+
+			Expect(serverConfig.MetricsPort).To(Equal(int32(8090)))
 		})
 
 		It("should not set defaults for address (should remain empty)", func() {

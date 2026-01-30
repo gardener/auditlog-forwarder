@@ -25,4 +25,7 @@ func SetDefaults_Server(obj *Server) {
 	if obj.Port == 0 {
 		obj.Port = 10443
 	}
+	if obj.MetricsPort == 0 {
+		obj.MetricsPort = 8080
+	}
 }

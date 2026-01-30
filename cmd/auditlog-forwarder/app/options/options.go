@@ -88,6 +88,9 @@ func (o *Options) ApplyTo(server *Config) error {
 		return err
 	}
 
+	serverConfig := o.Config.Server
+	server.Serving.MetricsAddress = net.JoinHostPort(serverConfig.Address, strconv.FormatInt(int64(serverConfig.MetricsPort), 10))
+
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
 	outputs, err := outputfactory.NewFromConfigs(o.Config.Outputs)
@@ -102,7 +105,7 @@ func (o *Options) ApplyTo(server *Config) error {
 // applyServerConfigToServing applies server configuration to serving config
 func (o *Options) applyServerConfigToServing(serving *Serving) error {
 	serverConfig := o.Config.Server
-	serving.Address = net.JoinHostPort(serverConfig.Address, strconv.FormatUint(uint64(serverConfig.Port), 10))
+	serving.Address = net.JoinHostPort(serverConfig.Address, strconv.FormatInt(int64(serverConfig.Port), 10))
 
 	serverCert, err := tls.LoadX509KeyPair(serverConfig.TLS.CertFile, serverConfig.TLS.KeyFile)
 	if err != nil {
@@ -152,6 +155,7 @@ type Config struct {
 
 // Serving contains the configuration for the auditlog forwarder.
 type Serving struct {
-	TLSConfig *tls.Config
-	Address   string
+	TLSConfig      *tls.Config
+	Address        string
+	MetricsAddress string
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
+	"github.com/gardener/auditlog-forwarder/internal/metrics"
 	"github.com/gardener/auditlog-forwarder/internal/output"
 	"github.com/gardener/auditlog-forwarder/internal/processor"
 )
@@ -46,21 +47,20 @@ func NewHandler(logger logr.Logger, processors []processor.Processor, outputs []
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	metrics.AuditReceived.Inc()
+
 	log := h.logger.WithValues("req_id", uuid.NewString())
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err, "Reading request body")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
-		if _, err := w.Write([]byte(`{"code":500,"message":"failed reading body request"}`)); err != nil {
-			log.Error(err, "Writing response body")
-			return
-		}
+		writeErrorResponse(w, log, http.StatusInternalServerError, "failed reading body request")
+		metrics.AuditFailed.Inc()
 		return
 	}
 
 	ctx := loggerctx.WithLogger(r.Context(), log)
-
 	log.Info("Received audit events")
 
 	processedData := body
@@ -70,10 +70,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Error(err, "Processing audit events", "processor", processor.Name())
 			w.Header().Set(headerContentType, mimeAppJSON)
 			w.WriteHeader(http.StatusInternalServerError)
-			if _, err := w.Write([]byte(`{"code":500,"message":"failed processing audit events"}`)); err != nil {
-				log.Error(err, "Writing response body")
-				return
-			}
+			writeErrorResponse(w, log, http.StatusInternalServerError, "failed processing audit events")
+			metrics.AuditFailed.Inc()
 			return
 		}
 	}
@@ -82,15 +80,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Error(err, "Failed to forward audit events to outputs")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
-		if _, err := w.Write([]byte(`{"code":500,"message":"failed to forward audit events"}`)); err != nil {
-			log.Error(err, "Writing response body")
-			return
-		}
+		writeErrorResponse(w, log, http.StatusInternalServerError, "failed forwarding audit events")
+		metrics.AuditFailed.Inc()
 		return
 	}
 
 	log.Info("Forwarded audit events to all outputs")
 	w.WriteHeader(http.StatusOK)
+	metrics.AuditSucceeded.Inc()
+}
+
+func writeErrorResponse(w http.ResponseWriter, log logr.Logger, statusCode int, message string) {
+	if _, err := fmt.Fprintf(w, `{"code":%d,"message":"%s"}`, statusCode, message); err != nil {
+		log.Error(err, "Writing response body")
+	}
 }
 
 // forwardToOutputs forwards audit events to all configured outputs in parallel.
