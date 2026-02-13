@@ -199,7 +199,7 @@ func backoffDuration(attempt int) time.Duration {
 		return baseBackoff
 	}
 
-	backoff := baseBackoff * time.Duration(1<<uint(attempt-1))
+	backoff := baseBackoff * time.Duration(1<<int64(attempt-1))
 	if backoff > maxBackoff {
 		return maxBackoff
 	}
