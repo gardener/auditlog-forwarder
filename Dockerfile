@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.25.6 AS go-builder
+FROM golang:1.26.0 AS go-builder
 
 ARG TARGETARCH
 WORKDIR /go/src/github.com/gardener/auditlog-forwarder
