@@ -31,8 +31,8 @@ const (
 	headerContentEncoding = "Content-Encoding"
 	contentEncodingGzip   = "gzip"
 
-	maxSendAttempts = 3
-	baseBackoff     = 400 * time.Millisecond
+	maxSendAttempts = 4
+	baseBackoff     = 500 * time.Millisecond
 	maxBackoff      = 3 * time.Second
 )
 
