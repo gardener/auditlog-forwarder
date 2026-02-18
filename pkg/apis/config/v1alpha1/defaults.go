@@ -38,5 +38,11 @@ func SetDefaults_Outputs(outputs []Output) {
 		if outputs[0].DeliveryMode == "" {
 			outputs[0].DeliveryMode = DeliveryModeGuaranteed
 		}
+	} else {
+		for i := range outputs {
+			if outputs[i].DeliveryMode == "" {
+				outputs[i].DeliveryMode = DeliveryModeBestEffort
+			}
+		}
 	}
 }
