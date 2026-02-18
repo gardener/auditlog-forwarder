@@ -72,6 +72,7 @@ var _ = Describe("Handler", func() {
 
 		outputConfigs := []configv1alpha1.Output{
 			{
+				DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
 				HTTP: &configv1alpha1.OutputHTTP{
 					URL: testServer.URL,
 				},
@@ -83,9 +84,11 @@ var _ = Describe("Handler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// reinitialize metrics before each test
-		metrics.AuditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
-		metrics.AuditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
-		metrics.AuditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		metrics.AuditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString()})
+		metrics.AuditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString()})
+		metrics.AuditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString()})
+		metrics.OutputSucceeded = promauto.NewCounterVec(prometheus.CounterOpts{Name: randString()}, []string{"output", "delivery_mode"})
+		metrics.OutputFailed = promauto.NewCounterVec(prometheus.CounterOpts{Name: randString()}, []string{"output", "delivery_mode"})
 	})
 
 	AfterEach(func() {
@@ -97,18 +100,18 @@ var _ = Describe("Handler", func() {
 	Describe("NewHandler", func() {
 		It("should create a handler with output clients", func() {
 			var err error
-			handler, err = NewHandler(logger, processors, outputInsts)
+			handler, err = NewHandler(logger, processors, outputInsts, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(handler).NotTo(BeNil())
-			Expect(handler.outputs).To(HaveLen(1))
-			Expect(handler.outputs[0].Name()).To(Equal(testServer.URL))
+			Expect(handler.guaranteedOutputs).To(HaveLen(1))
+			Expect(handler.guaranteedOutputs[0].Name()).To(Equal(testServer.URL))
 		})
 
 		It("should return error when no outputs configured", func() {
 			var err error
-			handler, err = NewHandler(logger, processors, []output.Output{})
+			handler, err = NewHandler(logger, processors, []output.Output{}, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no outputs configured"))
+			Expect(err.Error()).To(ContainSubstring("at least one guaranteed output must be configured"))
 			Expect(handler).To(BeNil())
 		})
 	})
@@ -116,7 +119,7 @@ var _ = Describe("Handler", func() {
 	Describe("ServeHTTP", func() {
 		BeforeEach(func() {
 			var err error
-			handler, err = NewHandler(logger, processors, outputInsts)
+			handler, err = NewHandler(logger, processors, outputInsts, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -135,7 +138,7 @@ var _ = Describe("Handler", func() {
 
 			processorsChained := []processor.Processor{p1, p2}
 			var err error
-			handler, err = NewHandler(logger, processorsChained, outputInsts)
+			handler, err = NewHandler(logger, processorsChained, outputInsts, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			initial := []byte("A")
@@ -150,6 +153,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 
 		It("should process audit events and forward to outputs", func() {
@@ -198,6 +203,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 
 		It("should return error when output fails", func() {
@@ -231,6 +238,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(1.0))
 		})
 
 		It("should handle malformed request body", func() {
@@ -246,6 +255,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 
 		It("should return error when reading request fails", func() {
@@ -260,6 +271,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 	})
 })
@@ -302,8 +315,8 @@ func collect(col prometheus.Collector, do func(*prommodels.Metric)) {
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func randString(n int) string {
-	b := make([]rune, n)
+func randString() string {
+	b := make([]rune, 10)
 	for i := range b {
 		b[i] = letterRunes[rand.IntN(len(letterRunes))] //nolint:gosec
 	}

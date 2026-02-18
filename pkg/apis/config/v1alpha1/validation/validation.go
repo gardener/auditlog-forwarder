@@ -25,6 +25,10 @@ var (
 		configv1alpha1.LogFormatJSON,
 		configv1alpha1.LogFormatText,
 	)
+	validDeliveryModes = sets.NewString(
+		string(configv1alpha1.DeliveryModeGuaranteed),
+		string(configv1alpha1.DeliveryModeBestEffort),
+	)
 )
 
 // ValidateAuditlogForwarder validates the given [*configv1alpha1.AuditlogForwarder].
@@ -110,15 +114,34 @@ func validateOutputs(outputs []configv1alpha1.Output, fldPath *field.Path) field
 		return allErrs
 	}
 
-	// TODO: remove this limitation in the future
-	if len(outputs) != 1 {
-		allErrs = append(allErrs, field.Invalid(fldPath, len(outputs), "exactly one output must be configured"))
-		return allErrs
-	}
-
+	// Validate each output and count guaranteed outputs
+	guaranteedCount := 0
 	for i, output := range outputs {
 		outputPath := fldPath.Index(i)
 		allErrs = append(allErrs, validateOutput(&output, outputPath)...)
+
+		if output.DeliveryMode == configv1alpha1.DeliveryModeGuaranteed {
+			guaranteedCount++
+		}
+	}
+
+	// Validate delivery mode constraints
+	if len(outputs) == 1 {
+		// Single output must be guaranteed (should be set by defaults, but validate anyway)
+		if outputs[0].DeliveryMode != "" && outputs[0].DeliveryMode != configv1alpha1.DeliveryModeGuaranteed {
+			allErrs = append(allErrs, field.Invalid(fldPath.Index(0).Child("deliveryMode"),
+				outputs[0].DeliveryMode,
+				"single output must have 'guaranteed' delivery mode"))
+		}
+	} else {
+		// Multiple outputs: exactly one must be guaranteed
+		if guaranteedCount == 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath, guaranteedCount,
+				"exactly one output must have 'guaranteed' delivery mode when multiple outputs are configured"))
+		} else if guaranteedCount > 1 {
+			allErrs = append(allErrs, field.Invalid(fldPath, guaranteedCount,
+				"only one output can have 'guaranteed' delivery mode"))
+		}
 	}
 
 	return allErrs
@@ -127,6 +150,14 @@ func validateOutputs(outputs []configv1alpha1.Output, fldPath *field.Path) field
 // validateOutput validates a single output configuration.
 func validateOutput(output *configv1alpha1.Output, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
+
+	// Validate delivery mode if specified
+	if output.DeliveryMode != "" {
+		if !validDeliveryModes.Has(string(output.DeliveryMode)) {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("deliveryMode"),
+				output.DeliveryMode, validDeliveryModes.List()))
+		}
+	}
 
 	// Count the number of output types configured
 	outputTypes := 0

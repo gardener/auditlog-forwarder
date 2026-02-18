@@ -93,11 +93,29 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
-	outputs, err := outputfactory.NewFromConfigs(o.Config.Outputs)
-	if err != nil {
-		return fmt.Errorf("failed to create outputs: %w", err)
+	var (
+		guaranteedOutputsConfig []configv1alpha1.Output
+		bestEffortOutputsConfig []configv1alpha1.Output
+	)
+
+	for _, outputConfig := range o.Config.Outputs {
+		if outputConfig.DeliveryMode == configv1alpha1.DeliveryModeGuaranteed {
+			guaranteedOutputsConfig = append(guaranteedOutputsConfig, outputConfig)
+		} else {
+			bestEffortOutputsConfig = append(bestEffortOutputsConfig, outputConfig)
+		}
 	}
-	server.Outputs = outputs
+
+	guaranteedOutputs, err := outputfactory.NewFromConfigs(guaranteedOutputsConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create guaranteed outputs: %w", err)
+	}
+	bestEffortOutputs, err := outputfactory.NewFromConfigs(bestEffortOutputsConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create best-effort outputs: %w", err)
+	}
+	server.OutputsGuaranteed = guaranteedOutputs
+	server.OutputsBestEffort = bestEffortOutputs
 
 	return nil
 }
@@ -151,6 +169,8 @@ type Config struct {
 	Serving           Serving
 	InjectAnnotations map[string]string
 	Outputs           []output.Output
+	OutputsGuaranteed []output.Output
+	OutputsBestEffort []output.Output
 }
 
 // Serving contains the configuration for the auditlog forwarder.

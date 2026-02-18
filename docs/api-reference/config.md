@@ -131,6 +131,15 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.DeliveryMode">DeliveryMode
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Output">Output</a>)
+</p>
+<p>
+<p>DeliveryMode defines how messages are delivered to an output.</p>
+</p>
 <h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.Log">Log
 </h3>
 <p>
@@ -191,6 +200,24 @@ string
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>deliveryMode</code></br>
+<em>
+<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.DeliveryMode">
+DeliveryMode
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeliveryMode specifies how messages are delivered to this output.
+&ldquo;guaranteed&rdquo; means the request is considered successful only if this output succeeds.
+&ldquo;best-effort&rdquo; means delivery is attempted but failures don&rsquo;t affect request success.
+When only one output is configured, it is implicitly &ldquo;guaranteed&rdquo;.
+When multiple outputs are configured, exactly one must be &ldquo;guaranteed&rdquo;.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>http</code></br>

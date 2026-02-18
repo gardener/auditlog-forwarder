@@ -8,6 +8,7 @@ package v1alpha1
 func SetDefaults_AuditlogForwarder(obj *AuditlogForwarder) {
 	SetDefaults_Log(&obj.Log)
 	SetDefaults_Server(&obj.Server)
+	SetDefaults_Outputs(obj.Outputs)
 }
 
 // SetDefaults_Log sets defaults for the logging configuration.
@@ -27,5 +28,15 @@ func SetDefaults_Server(obj *Server) {
 	}
 	if obj.MetricsPort == 0 {
 		obj.MetricsPort = 8080
+	}
+}
+
+// SetDefaults_Outputs sets defaults for the outputs configuration.
+func SetDefaults_Outputs(outputs []Output) {
+	// If there is exactly one output, it is implicitly guaranteed
+	if len(outputs) == 1 {
+		if outputs[0].DeliveryMode == "" {
+			outputs[0].DeliveryMode = DeliveryModeGuaranteed
+		}
 	}
 }

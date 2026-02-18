@@ -30,6 +30,7 @@ var _ = Describe("Output Factory", func() {
 	Describe("NewFromConfig", func() {
 		It("should create HTTP output from config", func() {
 			config := configv1alpha1.Output{
+				DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
 				HTTP: &configv1alpha1.OutputHTTP{
 					URL: testServer.URL,
 				},
@@ -55,11 +56,13 @@ var _ = Describe("Output Factory", func() {
 		It("should create multiple outputs from configs", func() {
 			configs := []configv1alpha1.Output{
 				{
+					DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
 					HTTP: &configv1alpha1.OutputHTTP{
 						URL: testServer.URL + "/endpoint1",
 					},
 				},
 				{
+					DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
 					HTTP: &configv1alpha1.OutputHTTP{
 						URL: testServer.URL + "/endpoint2",
 					},
@@ -82,6 +85,7 @@ var _ = Describe("Output Factory", func() {
 		It("should return error if any output fails to create", func() {
 			configs := []configv1alpha1.Output{
 				{
+					DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
 					HTTP: &configv1alpha1.OutputHTTP{
 						URL: testServer.URL,
 					},

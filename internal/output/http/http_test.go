@@ -82,6 +82,16 @@ var _ = Describe("HTTP Output", func() {
 			Expect(err).To(MatchError(ContainSubstring("/nonexistent/ca.pem")))
 			Expect(httpOutput).To(BeNil())
 		})
+
+		It("should create output with best-effort delivery mode", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			output, err := httpoutput.New(config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(output).NotTo(BeNil())
+		})
 	})
 
 	Describe("SendEvents", func() {

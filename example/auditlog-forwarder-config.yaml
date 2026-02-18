@@ -16,7 +16,11 @@ server:
     # clientCAFile: "/etc/certs/client-ca.crt"
 
 outputs:
-- http:
+  # When only one output is configured, it is implicitly "guaranteed".
+  # When multiple outputs are configured, exactly one must be "guaranteed"
+  # and the rest should be "best-effort".
+- deliveryMode: guaranteed # guaranteed (default) | best-effort
+  http:
     url: https://example.com/v1/logs
     # compression: gzip
     tls:
