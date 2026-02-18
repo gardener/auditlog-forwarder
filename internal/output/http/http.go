@@ -17,7 +17,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
+	"github.com/gardener/auditlog-forwarder/internal/output"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
@@ -27,7 +30,13 @@ const (
 
 	headerContentEncoding = "Content-Encoding"
 	contentEncodingGzip   = "gzip"
+
+	maxSendAttempts = 4
+	baseBackoff     = 500 * time.Millisecond
+	maxBackoff      = 3 * time.Second
 )
+
+var _ output.Output = (*Output)(nil)
 
 // Output represents an HTTP output for forwarding audit events.
 type Output struct {
@@ -59,7 +68,7 @@ func New(config *configv1alpha1.OutputHTTP) (*Output, error) {
 func (o *Output) Send(ctx context.Context, data []byte) error {
 	logger := loggerctx.LoggerFromContext(ctx).WithName("http").WithValues("url", o.url)
 
-	var bodyReader io.Reader
+	payload := data
 	if o.compression == contentEncodingGzip {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
@@ -74,40 +83,50 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 		if err := gz.Close(); err != nil { // flush
 			return fmt.Errorf("failed to finalize gzip writer: %w", err)
 		}
-		bodyReader = &buf
-	} else {
-		bodyReader = bytes.NewReader(data)
+		payload = buf.Bytes()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bodyReader)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set(headerContentType, mimeAppJSON)
-	if o.compression == contentEncodingGzip {
-		req.Header.Set(headerContentEncoding, contentEncodingGzip)
-	}
-
-	resp, err := o.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Error(err, "failed closing body")
+	var lastErr error
+	for attempt := 1; attempt <= maxSendAttempts; attempt++ {
+		bodyReader := bytes.NewReader(payload)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bodyReader)
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
 		}
-	}()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if body, err := io.ReadAll(resp.Body); err != nil {
-			logger.Error(err, "failed reading body")
+		req.Header.Set(headerContentType, mimeAppJSON)
+		if o.compression == contentEncodingGzip {
+			req.Header.Set(headerContentEncoding, contentEncodingGzip)
+		}
+
+		resp, err := o.client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to send request: %w", err)
 		} else {
-			return fmt.Errorf("output returned status %d: %s", resp.StatusCode, string(body))
+			body, readErr := readAndCloseBody(resp, logger)
+			if readErr != nil {
+				return readErr
+			}
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return nil
+			}
+
+			reqErr := fmt.Errorf("output returned status %d: %s", resp.StatusCode, string(body))
+			if !isRetryableStatus(resp.StatusCode) {
+				return reqErr
+			}
+			lastErr = reqErr
+		}
+
+		if attempt < maxSendAttempts {
+			if err := sleepWithContext(ctx, backoffDuration(attempt)); err != nil {
+				return fmt.Errorf("request canceled while retrying: %w, previous attempt failed with: %w", err, lastErr)
+			}
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 // Name returns the URL of this HTTP output.
@@ -154,4 +173,41 @@ func createHTTPClient(tlsConfig *configv1alpha1.ClientTLS) (*http.Client, error)
 
 	client.Transport = transport
 	return client, nil
+}
+
+func isRetryableStatus(statusCode int) bool {
+	return statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError
+}
+
+func readAndCloseBody(resp *http.Response, logger logr.Logger) ([]byte, error) {
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error(err, "failed closing body")
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return body, nil
+}
+
+func backoffDuration(attempt int) time.Duration {
+	if attempt <= 1 {
+		return baseBackoff
+	}
+
+	backoff := baseBackoff * time.Duration(1<<int64(attempt-1))
+	return min(backoff, maxBackoff)
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	select {
+	case <-time.After(d):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

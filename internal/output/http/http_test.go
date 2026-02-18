@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package http
+package http_test
 
 import (
 	"bytes"
@@ -11,10 +11,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	httpoutput "github.com/gardener/auditlog-forwarder/internal/output/http"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
@@ -23,7 +26,7 @@ var _ = Describe("HTTP Output", func() {
 		testServer   *httptest.Server
 		response     []byte
 		responseCode int
-		output       *Output
+		httpOutput   *httpoutput.Output
 	)
 
 	BeforeEach(func() {
@@ -52,17 +55,17 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			output, err = New(config)
+			httpOutput, err = httpoutput.New(config)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(output).NotTo(BeNil())
-			Expect(output.Name()).To(Equal(testServer.URL))
+			Expect(httpOutput).NotTo(BeNil())
+			Expect(httpOutput.Name()).To(Equal(testServer.URL))
 		})
 
 		It("should handle nil config", func() {
-			output, err := New(nil)
+			httpOutput, err := httpoutput.New(nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("is nil")))
-			Expect(output).To(BeNil())
+			Expect(httpOutput).To(BeNil())
 		})
 
 		It("should create output with TLS config", func() {
@@ -73,11 +76,11 @@ var _ = Describe("HTTP Output", func() {
 				},
 			}
 
-			output, err := New(config)
+			httpOutput, err := httpoutput.New(config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("failed to read CA certificate file")))
 			Expect(err).To(MatchError(ContainSubstring("/nonexistent/ca.pem")))
-			Expect(output).To(BeNil())
+			Expect(httpOutput).To(BeNil())
 		})
 	})
 
@@ -88,15 +91,14 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			output, err = New(config)
+			httpOutput, err = httpoutput.New(config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should send events successfully", func() {
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := output.Send(context.Background(), testData)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 
 			Expect(response).To(Equal(testData))
 		})
@@ -125,11 +127,11 @@ var _ = Describe("HTTP Output", func() {
 				Compression: "gzip",
 			}
 			var err error
-			output, err = New(config)
+			httpOutput, err = httpoutput.New(config)
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
-			Expect(output.Send(context.Background(), testData)).NotTo(HaveOccurred())
+			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 
 			Expect(receivedEncoding).To(Equal("gzip"))
 			Expect(receivedBody).To(Equal(testData))
@@ -140,7 +142,7 @@ var _ = Describe("HTTP Output", func() {
 
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := output.Send(context.Background(), testData)
+			err := httpOutput.Send(context.Background(), testData)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring(("output returned status 500"))))
 		})
@@ -151,9 +153,43 @@ var _ = Describe("HTTP Output", func() {
 
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := output.Send(ctx, testData)
+			err := httpOutput.Send(ctx, testData)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("context canceled")))
+		})
+
+		It("should retry on retryable status codes", func() {
+			var attempts int32
+			originalBackoff := httpoutput.BackoffFunc
+			originalSleep := httpoutput.SleepFunc
+			httpoutput.BackoffFunc = func(_ int) time.Duration { return 0 }
+			httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
+			DeferCleanup(func() {
+				httpoutput.BackoffFunc = originalBackoff
+				httpoutput.SleepFunc = originalSleep
+			})
+
+			testServer.Close()
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				count := atomic.AddInt32(&attempts, 1)
+				if count < 3 {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(config)
+			Expect(err).NotTo(HaveOccurred())
+
+			testData := []byte(`{"events": ["test"]}`)
+			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
+			Expect(atomic.LoadInt32(&attempts)).To(Equal(int32(3)))
 		})
 	})
 })
