@@ -98,8 +98,7 @@ var _ = Describe("HTTP Output", func() {
 		It("should send events successfully", func() {
 			testData := []byte(`{"events": ["test"]}`)
 
-			err := httpOutput.Send(context.Background(), testData)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 
 			Expect(response).To(Equal(testData))
 		})
@@ -132,7 +131,7 @@ var _ = Describe("HTTP Output", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
-			Expect(httpOutput.Send(context.Background(), testData)).NotTo(HaveOccurred())
+			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 
 			Expect(receivedEncoding).To(Equal("gzip"))
 			Expect(receivedBody).To(Equal(testData))
@@ -165,10 +164,10 @@ var _ = Describe("HTTP Output", func() {
 			originalSleep := httpoutput.SleepFunc
 			httpoutput.BackoffFunc = func(_ int) time.Duration { return 0 }
 			httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
-			defer func() {
+			DeferCleanup(func() {
 				httpoutput.BackoffFunc = originalBackoff
 				httpoutput.SleepFunc = originalSleep
-			}()
+			})
 
 			testServer.Close()
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +188,7 @@ var _ = Describe("HTTP Output", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
-			Expect(httpOutput.Send(context.Background(), testData)).NotTo(HaveOccurred())
+			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 			Expect(atomic.LoadInt32(&attempts)).To(Equal(int32(3)))
 		})
 	})

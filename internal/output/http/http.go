@@ -121,7 +121,7 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 
 		if attempt < maxSendAttempts {
 			if err := sleepWithContext(ctx, backoffDuration(attempt)); err != nil {
-				return fmt.Errorf("request canceled while retrying: %w", err)
+				return fmt.Errorf("request canceled while retrying: %w, previous attempt failed with: %w", err, lastErr)
 			}
 		}
 	}
@@ -200,11 +200,7 @@ func backoffDuration(attempt int) time.Duration {
 	}
 
 	backoff := baseBackoff * time.Duration(1<<int64(attempt-1))
-	if backoff > maxBackoff {
-		return maxBackoff
-	}
-
-	return backoff
+	return min(backoff, maxBackoff)
 }
 
 func sleepWithContext(ctx context.Context, d time.Duration) error {
