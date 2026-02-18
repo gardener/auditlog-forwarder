@@ -128,7 +128,7 @@ func validateOutputs(outputs []configv1alpha1.Output, fldPath *field.Path) field
 	// Validate delivery mode constraints
 	if len(outputs) == 1 {
 		// Single output must be guaranteed (should be set by defaults, but validate anyway)
-		if outputs[0].DeliveryMode != "" && outputs[0].DeliveryMode != configv1alpha1.DeliveryModeGuaranteed {
+		if outputs[0].DeliveryMode != configv1alpha1.DeliveryModeGuaranteed {
 			allErrs = append(allErrs, field.Invalid(fldPath.Index(0).Child("deliveryMode"),
 				outputs[0].DeliveryMode,
 				"single output must have 'guaranteed' delivery mode"))

@@ -35,6 +35,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			},
 			Outputs: []configv1alpha1.Output{
 				{
+					DeliveryMode: configv1alpha1.DeliveryModeGuaranteed, // this is defaulted for single output, but set explicitly for clarity
 					HTTP: &configv1alpha1.OutputHTTP{
 						URL: "https://example.com/audit",
 					},
@@ -344,10 +345,17 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				}
 
 				errs := ValidateAuditlogForwarder(config)
-				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("outputs[0]"),
-				}))))
+				Expect(errs).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("outputs[0]"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("outputs[0].deliveryMode"),
+						"Detail": ContainSubstring("single output must have 'guaranteed' delivery mode"),
+					})),
+				))
 			})
 		})
 
