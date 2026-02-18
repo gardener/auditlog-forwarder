@@ -92,7 +92,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Fire off best-effort outputs asynchronously - they don't block the response
 	if len(h.bestEffortOutputs) > 0 {
-		go forwardToBestEffortOutputs(ctx, processedData, h.bestEffortOutputs, log)
+		go forwardToBestEffortOutputs(processedData, h.bestEffortOutputs, log)
 	}
 
 	log.Info("Forwarded audit events to guaranteed outputs")
@@ -160,7 +160,7 @@ func forwardToGuaranteedOutputs(ctx context.Context,
 
 // forwardToBestEffortOutputs forwards audit events to best-effort outputs asynchronously.
 // Failures are logged and tracked in metrics but do not affect the request status.
-func forwardToBestEffortOutputs(_ context.Context,
+func forwardToBestEffortOutputs(
 	data []byte,
 	outputs []output.Output,
 	log logr.Logger,
