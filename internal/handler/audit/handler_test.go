@@ -80,7 +80,7 @@ var _ = Describe("Handler", func() {
 		}
 
 		var err error
-		outputInsts, err = outputfactory.NewFromConfigs(outputConfigs)
+		outputInsts, err = outputfactory.NewHttpOutputsWithOptions(outputConfigs, configv1alpha1.DeliveryModeGuaranteed)
 		Expect(err).NotTo(HaveOccurred())
 
 		// reinitialize metrics before each test

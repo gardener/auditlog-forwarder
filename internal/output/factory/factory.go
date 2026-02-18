@@ -12,25 +12,18 @@ import (
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
-// NewFromConfig creates a output from the given configuration.
-func NewFromConfig(config configv1alpha1.Output) (output.Output, error) {
-	if config.HTTP != nil {
-		return http.New(config.HTTP)
-	}
-
-	return nil, fmt.Errorf("no supported output type configured")
-}
-
-// NewFromConfigs creates a slice of outputs from the given configurations.
-func NewFromConfigs(configs []configv1alpha1.Output) ([]output.Output, error) {
+// NewHttpOutputsWithOptions filters outputs by delivery mode and creates HTTP outputs with the given options.
+// It extracts only HTTP outputs matching the specified delivery mode and configures them with the provided options.
+func NewHttpOutputsWithOptions(allOutputs []configv1alpha1.Output, deliveryMode configv1alpha1.DeliveryMode, httpOpts ...http.Option) ([]output.Output, error) {
 	var outputs []output.Output
-
-	for i, config := range configs {
-		output, err := NewFromConfig(config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create output at index %d: %w", i, err)
+	for _, outputConfig := range allOutputs {
+		if outputConfig.HTTP != nil && outputConfig.DeliveryMode == deliveryMode {
+			if http, err := http.New(outputConfig.HTTP, httpOpts...); err != nil {
+				return nil, fmt.Errorf("failed to create HTTP output: %w", err)
+			} else {
+				outputs = append(outputs, http)
+			}
 		}
-		outputs = append(outputs, output)
 	}
 
 	return outputs, nil
