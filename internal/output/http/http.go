@@ -30,10 +30,6 @@ const (
 
 	headerContentEncoding = "Content-Encoding"
 	contentEncodingGzip   = "gzip"
-
-	defaultMaxSendAttempts = 4
-	defaultBaseBackoff     = 500 * time.Millisecond
-	defaultMaxBackoff      = 3 * time.Second
 )
 
 var _ output.Output = (*Output)(nil)
@@ -65,9 +61,9 @@ func New(config *configv1alpha1.OutputHTTP, options ...Option) (*Output, error) 
 		url:             config.URL,
 		client:          client,
 		compression:     config.Compression,
-		maxSendAttempts: defaultMaxSendAttempts,
-		baseBackoff:     defaultBaseBackoff,
-		maxBackoff:      defaultMaxBackoff,
+		maxSendAttempts: 4,
+		baseBackoff:     500 * time.Millisecond,
+		maxBackoff:      3 * time.Second,
 	}
 
 	for _, opt := range options {
@@ -102,7 +98,7 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 	}
 
 	var lastErr error
-	for attempt := 1; attempt <= defaultMaxSendAttempts; attempt++ {
+	for attempt := 1; attempt <= o.maxSendAttempts; attempt++ {
 		bodyReader := bytes.NewReader(payload)
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bodyReader)
 		if err != nil {
@@ -134,8 +130,8 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 			lastErr = reqErr
 		}
 
-		if attempt < defaultMaxSendAttempts {
-			if err := sleepWithContext(ctx, backoffDuration(attempt)); err != nil {
+		if attempt < o.maxSendAttempts {
+			if err := sleepWithContext(ctx, backoffDuration(attempt, o.baseBackoff, o.maxBackoff)); err != nil {
 				return fmt.Errorf("request canceled while retrying: %w, previous attempt failed with: %w", err, lastErr)
 			}
 		}
@@ -209,13 +205,13 @@ func readAndCloseBody(resp *http.Response, logger logr.Logger) ([]byte, error) {
 	return body, nil
 }
 
-func backoffDuration(attempt int) time.Duration {
+func backoffDuration(attempt int, baseBackoff, maxBackoff time.Duration) time.Duration {
 	if attempt <= 1 {
-		return defaultBaseBackoff
+		return baseBackoff
 	}
 
-	backoff := defaultBaseBackoff * time.Duration(1<<int64(attempt-1))
-	return min(backoff, defaultMaxBackoff)
+	backoff := baseBackoff * time.Duration(1<<int64(attempt-1))
+	return min(backoff, maxBackoff)
 }
 
 func sleepWithContext(ctx context.Context, d time.Duration) error {
