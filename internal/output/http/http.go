@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	loggerctx "github.com/gardener/auditlog-forwarder/internal/context"
 	"github.com/gardener/auditlog-forwarder/internal/output"
@@ -211,7 +212,7 @@ func backoffDuration(attempt int, baseBackoff, maxBackoff time.Duration) time.Du
 	}
 
 	backoff := baseBackoff * time.Duration(1<<int64(attempt-1))
-	return min(backoff, maxBackoff)
+	return wait.Jitter(min(backoff, maxBackoff), 0.05)
 }
 
 func sleepWithContext(ctx context.Context, d time.Duration) error {
