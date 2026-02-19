@@ -95,7 +95,7 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
-	guaranteedOutputs, err := outputfactory.NewHttpOutputsWithOptions(
+	guaranteedOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
 		o.Config.Outputs,
 		configv1alpha1.DeliveryModeGuaranteed,
 	)
@@ -105,7 +105,7 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	// Purposefully use different backoff settings for best-effort outputs
 	// in order to give more time to the target system to receive the events in case of transient errors.
-	bestEffortOutputs, err := outputfactory.NewHttpOutputsWithOptions(
+	bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
 		o.Config.Outputs,
 		configv1alpha1.DeliveryModeBestEffort,
 		outputhttp.WithMaxSendAttempts(5),

@@ -12,9 +12,9 @@ import (
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 )
 
-// NewHttpOutputsWithOptions filters outputs by delivery mode and creates HTTP outputs with the given options.
+// NewHTTPOutputsWithOptions filters outputs by delivery mode and creates HTTP outputs with the given options.
 // It extracts only HTTP outputs matching the specified delivery mode and configures them with the provided options.
-func NewHttpOutputsWithOptions(allOutputs []configv1alpha1.Output, deliveryMode configv1alpha1.DeliveryMode, httpOpts ...http.Option) ([]output.Output, error) {
+func NewHTTPOutputsWithOptions(allOutputs []configv1alpha1.Output, deliveryMode configv1alpha1.DeliveryMode, httpOpts ...http.Option) ([]output.Output, error) {
 	var outputs []output.Output
 	for _, outputConfig := range allOutputs {
 		if outputConfig.HTTP != nil && outputConfig.DeliveryMode == deliveryMode {

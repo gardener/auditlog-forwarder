@@ -46,7 +46,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name()).To(Equal(testServer.URL))
@@ -68,7 +68,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeBestEffort)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeBestEffort)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name()).To(Equal(testServer.URL + "/best-effort"))
@@ -88,7 +88,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(1))
 		})
@@ -115,7 +115,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(2))
 			Expect(result[0].Name()).To(Equal(testServer.URL + "/guaranteed-1"))
@@ -132,7 +132,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeEmpty())
 		})
@@ -140,7 +140,7 @@ var _ = Describe("Output Factory", func() {
 		It("should handle empty outputs slice", func() {
 			outputs := []configv1alpha1.Output{}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeEmpty())
 		})
@@ -155,7 +155,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(
+			result, err := factory.NewHTTPOutputsWithOptions(
 				outputs,
 				configv1alpha1.DeliveryModeGuaranteed,
 				httpoutput.WithMaxSendAttempts(10),
@@ -183,7 +183,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(
+			result, err := factory.NewHTTPOutputsWithOptions(
 				outputs,
 				configv1alpha1.DeliveryModeGuaranteed,
 				httpoutput.WithMaxSendAttempts(5),
@@ -207,7 +207,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("failed to create HTTP output")))
 			Expect(result).To(BeNil())
@@ -239,7 +239,7 @@ var _ = Describe("Output Factory", func() {
 				},
 			}
 
-			result, err := factory.NewHttpOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
+			result, err := factory.NewHTTPOutputsWithOptions(outputs, configv1alpha1.DeliveryModeGuaranteed)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(2))
 			Expect(result[0].Name()).To(Equal(testServer.URL + "/http-1"))
