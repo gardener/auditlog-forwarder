@@ -108,9 +108,9 @@ func (o *Options) ApplyTo(server *Config) error {
 	bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
 		o.Config.Outputs,
 		configv1alpha1.DeliveryModeBestEffort,
-		outputhttp.WithMaxSendAttempts(5),
+		outputhttp.WithMaxSendAttempts(6),
 		outputhttp.WithBaseBackoff(1*time.Second),
-		outputhttp.WithMaxBackoff(5*time.Second),
+		outputhttp.WithMaxBackoff(6*time.Second),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create best-effort outputs: %w", err)
