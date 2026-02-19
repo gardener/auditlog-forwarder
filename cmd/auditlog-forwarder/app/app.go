@@ -116,12 +116,19 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 
 	go func(ch chan<- error) {
 		defer cancelSrvMetrics()
-		ch <- runServer(srvAuditCtx, log, "audit-server", true, srvAudit)
+		ch <- runServer(srvAuditCtx, log, "audit-server", true, srvAudit, func(log logr.Logger) error {
+			if err := auditHandler.Shutdown(30 * time.Second); err != nil {
+				log.Error(err, "Handler shutdown completed with timeout")
+			} else {
+				log.Info("Handler shutdown completed successfully")
+			}
+			return nil
+		})
 	}(srvAuditCh)
 
 	go func(ch chan<- error) {
 		defer cancelSrvAudit()
-		ch <- runServer(srvMetricsCtx, log, "metrics-server", false, srvMetrics)
+		ch <- runServer(srvMetricsCtx, log, "metrics-server", false, srvMetrics, nil)
 	}(srvMetricsCh)
 
 	select {
@@ -133,7 +140,15 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 }
 
 // runServer starts a server. It returns if the context is canceled or the server cannot start initially.
-func runServer(ctx context.Context, log logr.Logger, name string, serveTLS bool, srv *http.Server) error {
+// The preShutdownHook, if provided, is called before initiating server shutdown to allow custom cleanup.
+func runServer(
+	ctx context.Context,
+	log logr.Logger,
+	name string,
+	serveTLS bool,
+	srv *http.Server,
+	preShutdownHook func(logr.Logger) error,
+) error {
 	log = log.WithName(name)
 	errCh := make(chan error)
 
@@ -157,7 +172,15 @@ func runServer(ctx context.Context, log logr.Logger, name string, serveTLS bool,
 		return err
 	case <-ctx.Done():
 		log.Info("Shutting down")
-		cancelCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+
+		// Execute pre-shutdown hook if provided (e.g., drain handler)
+		if preShutdownHook != nil {
+			if err := preShutdownHook(log); err != nil {
+				log.Error(err, "Pre-shutdown hook failed")
+			}
+		}
+
+		cancelCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		err := srv.Shutdown(cancelCtx)
 		if err != nil {

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -34,6 +35,9 @@ type Handler struct {
 	processors        []processor.Processor
 	guaranteedOutputs []output.Output
 	bestEffortOutputs []output.Output
+	shutdownCtx       context.Context
+	shutdownCancel    context.CancelFunc
+	bestEffortWg      sync.WaitGroup
 }
 
 // NewHandler creates a new [Handler].
@@ -42,11 +46,15 @@ func NewHandler(logger logr.Logger, processors []processor.Processor, guaranteed
 		return nil, errors.New("at least one guaranteed output must be configured")
 	}
 
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+
 	return &Handler{
 		logger:            logger,
 		processors:        processors,
 		guaranteedOutputs: guaranteedOutputs,
 		bestEffortOutputs: bestEffortOutputs,
+		shutdownCtx:       shutdownCtx,
+		shutdownCancel:    shutdownCancel,
 	}, nil
 }
 
@@ -92,12 +100,39 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Fire off best-effort outputs asynchronously - they don't block the response
 	if len(h.bestEffortOutputs) > 0 {
-		go forwardToBestEffortOutputs(processedData, h.bestEffortOutputs, log)
+		h.bestEffortWg.Go(func() {
+			forwardToBestEffortOutputs(h.shutdownCtx, processedData, h.bestEffortOutputs, log)
+		})
 	}
 
 	log.Info("Forwarded audit events to guaranteed outputs")
 	w.WriteHeader(http.StatusOK)
 	metrics.AuditSucceeded.Inc()
+}
+
+// Shutdown initiates graceful shutdown of the handler, waiting for in-flight
+// best-effort outputs to complete within the given timeout.
+// It waits for all active best-effort goroutines to finish, canceling the
+// shutdown context only after timeout to stop any remaining work.
+func (h *Handler) Shutdown(timeout time.Duration) error {
+	h.logger.Info("Initiating handler shutdown", "timeout", timeout.String())
+
+	done := make(chan struct{})
+	go func() {
+		h.bestEffortWg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		h.logger.Info("All best-effort outputs completed successfully or maximum retries reached")
+		h.shutdownCancel()
+		return nil
+	case <-time.After(timeout):
+		// Cancel shutdown context to stop any ongoing retries
+		h.shutdownCancel()
+		return fmt.Errorf("shutdown timeout exceeded after %s, some best-effort outputs may not have completed", timeout)
+	}
 }
 
 func writeErrorResponse(w http.ResponseWriter, log logr.Logger, statusCode int, message string) {
@@ -161,20 +196,19 @@ func forwardToGuaranteedOutputs(ctx context.Context,
 // forwardToBestEffortOutputs forwards audit events to best-effort outputs asynchronously.
 // Failures are logged and tracked in metrics but do not affect the request status.
 func forwardToBestEffortOutputs(
+	ctx context.Context,
 	data []byte,
 	outputs []output.Output,
 	log logr.Logger,
 ) {
-	// Use background context since the request context may be cancelled
-	bgCtx := context.Background()
-	bgCtx = loggerctx.WithLogger(bgCtx, log)
+	ctx = loggerctx.WithLogger(ctx, log)
 
 	var wg sync.WaitGroup
 	for _, out := range outputs {
 		wg.Add(1)
 		go func(o output.Output) {
 			defer wg.Done()
-			if err := o.Send(bgCtx, data); err != nil {
+			if err := o.Send(ctx, data); err != nil {
 				log.Error(err, "Failed to forward to best-effort output", "output", o.Name())
 				metrics.OutputFailed.WithLabelValues(o.Name(), string(configv1alpha1.DeliveryModeBestEffort)).Inc()
 			} else {

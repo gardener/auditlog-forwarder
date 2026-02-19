@@ -275,6 +275,125 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 	})
+
+	Describe("Shutdown", func() {
+		var (
+			bestEffortServer   *httptest.Server
+			bestEffortResponse []byte
+		)
+
+		BeforeEach(func() {
+			bestEffortServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				Expect(err).NotTo(HaveOccurred())
+				bestEffortResponse = body
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			outputConfigs := []configv1alpha1.Output{
+				{
+					DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+					HTTP: &configv1alpha1.OutputHTTP{
+						URL: bestEffortServer.URL,
+					},
+				},
+			}
+
+			var err error
+			bestEffortOutputs, err := outputfactory.NewHttpOutputsWithOptions(outputConfigs, configv1alpha1.DeliveryModeBestEffort)
+			Expect(err).NotTo(HaveOccurred())
+
+			handler, err = NewHandler(logger, processors, outputInsts, bestEffortOutputs)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if bestEffortServer != nil {
+				bestEffortServer.Close()
+			}
+		})
+
+		It("should wait for best-effort outputs to complete during shutdown", func() {
+			eventList := &audit.EventList{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "audit.k8s.io/v1",
+					Kind:       "EventList",
+				},
+				Items: []audit.Event{{Verb: "create"}},
+			}
+
+			body, err := helper.EncodeEventList(eventList)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusOK))
+
+			// Shutdown should wait for best-effort output to complete
+			Expect(handler.Shutdown(2 * time.Second)).To(Succeed())
+			Eventually(func() bool { return len(bestEffortResponse) > 0 }, 50*time.Millisecond).Should(BeTrue())
+		})
+
+		It("should return timeout error if best-effort outputs take too long", func() {
+			slowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				time.Sleep(time.Second) // Longer than shutdown timeout
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer slowServer.Close()
+
+			slowOutputConfigs := []configv1alpha1.Output{
+				{
+					DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+					HTTP: &configv1alpha1.OutputHTTP{
+						URL: slowServer.URL,
+					},
+				},
+			}
+
+			slowOutputs, err := outputfactory.NewHttpOutputsWithOptions(slowOutputConfigs, configv1alpha1.DeliveryModeBestEffort)
+			Expect(err).NotTo(HaveOccurred())
+
+			handler, err = NewHandler(logger, processors, outputInsts, slowOutputs)
+			Expect(err).NotTo(HaveOccurred())
+
+			eventList := &audit.EventList{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "audit.k8s.io/v1",
+					Kind:       "EventList",
+				},
+				Items: []audit.Event{{Verb: "create"}},
+			}
+
+			body, err := helper.EncodeEventList(eventList)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusOK))
+
+			// Shutdown with short timeout should timeout
+			err = handler.Shutdown(100 * time.Millisecond)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("shutdown timeout exceeded"))
+		})
+
+		It("should complete shutdown immediately when no best-effort outputs are in flight", func() {
+			Expect(handler.Shutdown(5 * time.Second)).To(Succeed())
+		})
+
+		It("should cancel shutdown context after successful shutdown", func() {
+			initialCtx := handler.shutdownCtx
+			Expect(initialCtx.Err()).To(BeNil())
+
+			Expect(handler.Shutdown(1 * time.Second)).To(Succeed())
+			Expect(initialCtx.Err()).To(Equal(context.Canceled))
+		})
+	})
 })
 
 // errorReader is a reader that always returns an error
