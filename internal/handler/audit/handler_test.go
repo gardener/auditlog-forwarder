@@ -92,6 +92,11 @@ var _ = Describe("Handler", func() {
 	})
 
 	AfterEach(func() {
+		// Shutdown handler to wait for any async best-effort outputs to complete
+		// This prevents race conditions when the next test reinitializes global metrics
+		if handler != nil {
+			Expect(handler.Shutdown(time.Second)).To(Succeed())
+		}
 		if testServer != nil {
 			testServer.Close()
 		}
