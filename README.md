@@ -18,7 +18,7 @@ The auditlog-forwarder acts as a webhook endpoint that:
 
 - **Webhook Integration**: Seamless integration with Kubernetes audit webhook functionality
 - **Annotation Injection**: Enrich audit events with custom metadata for better observability
-- **Multiple Backends**: Forward to multiple destinations simultaneously (work in progress)
+- **Multiple Backends**: Forward to multiple destinations simultaneously (one main and others treated as best-effort)
 - **TLS Security**: Mutual TLS support for secure communication
 - **Configurable Processing**: Pluggable processor architecture for extensible event handling
 
