@@ -100,10 +100,10 @@ func (o *Options) ApplyTo(server *Config) error {
 		configv1alpha1.DeliveryModeGuaranteed,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create guaranteed outputs: %w", err)
+		return fmt.Errorf("failed to create Guaranteed outputs: %w", err)
 	}
 
-	// Purposefully use different backoff settings for best-effort outputs
+	// Purposefully use different backoff settings for BestEffort outputs
 	// in order to give more time to the target system to receive the events in case of transient errors.
 	bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
 		o.Config.Outputs,
@@ -113,7 +113,7 @@ func (o *Options) ApplyTo(server *Config) error {
 		outputhttp.WithMaxBackoff(6*time.Second),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create best-effort outputs: %w", err)
+		return fmt.Errorf("failed to create BestEffort outputs: %w", err)
 	}
 	server.OutputsGuaranteed = guaranteedOutputs
 	server.OutputsBestEffort = bestEffortOutputs

@@ -92,7 +92,7 @@ var _ = Describe("Handler", func() {
 	})
 
 	AfterEach(func() {
-		// Shutdown handler to wait for any async best-effort outputs to complete
+		// Shutdown handler to wait for any async BestEffort outputs to complete
 		// This prevents race conditions when the next test reinitializes global metrics
 		if handler != nil {
 			Expect(handler.Shutdown(time.Second)).To(Succeed())
@@ -116,7 +116,7 @@ var _ = Describe("Handler", func() {
 			var err error
 			handler, err = NewHandler(logger, processors, []output.Output{}, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("at least one guaranteed output must be configured"))
+			Expect(err.Error()).To(ContainSubstring("at least one Guaranteed output must be configured"))
 			Expect(handler).To(BeNil())
 		})
 	})
@@ -318,7 +318,7 @@ var _ = Describe("Handler", func() {
 			}
 		})
 
-		It("should wait for best-effort outputs to complete during shutdown", func() {
+		It("should wait for BestEffort outputs to complete during shutdown", func() {
 			eventList := &audit.EventList{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "audit.k8s.io/v1",
@@ -337,12 +337,12 @@ var _ = Describe("Handler", func() {
 
 			Expect(w.Code).To(Equal(http.StatusOK))
 
-			// Shutdown should wait for best-effort output to complete
+			// Shutdown should wait for BestEffort output to complete
 			Expect(handler.Shutdown(2 * time.Second)).To(Succeed())
 			Eventually(func() bool { return len(bestEffortResponse) > 0 }, 50*time.Millisecond).Should(BeTrue())
 		})
 
-		It("should return timeout error if best-effort outputs take too long", func() {
+		It("should return timeout error if BestEffort outputs take too long", func() {
 			slowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(time.Second) // Longer than shutdown timeout
 				w.WriteHeader(http.StatusOK)
@@ -387,7 +387,7 @@ var _ = Describe("Handler", func() {
 			Expect(err.Error()).To(ContainSubstring("shutdown timeout exceeded"))
 		})
 
-		It("should complete shutdown immediately when no best-effort outputs are in flight", func() {
+		It("should complete shutdown immediately when no BestEffort outputs are in flight", func() {
 			Expect(handler.Shutdown(5 * time.Second)).To(Succeed())
 		})
 

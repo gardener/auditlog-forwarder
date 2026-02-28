@@ -43,7 +43,7 @@ type Handler struct {
 // NewHandler creates a new [Handler].
 func NewHandler(logger logr.Logger, processors []processor.Processor, guaranteedOutputs, bestEffortOutputs []output.Output) (*Handler, error) {
 	if len(guaranteedOutputs) == 0 {
-		return nil, errors.New("at least one guaranteed output must be configured")
+		return nil, errors.New("at least one Guaranteed output must be configured")
 	}
 
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
@@ -88,9 +88,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Send to guaranteed outputs first - these must succeed for request to be successful
+	// Send to Guaranteed outputs first - these must succeed for request to be successful
 	if err := forwardToGuaranteedOutputs(ctx, processedData, h.guaranteedOutputs, log); err != nil {
-		log.Error(err, "Failed to forward audit events to guaranteed outputs")
+		log.Error(err, "Failed to forward audit events to Guaranteed outputs")
 		w.Header().Set(headerContentType, mimeAppJSON)
 		w.WriteHeader(http.StatusInternalServerError)
 		writeErrorResponse(w, log, http.StatusInternalServerError, "failed forwarding audit events")
@@ -98,21 +98,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fire off best-effort outputs asynchronously - they don't block the response
+	// Fire off BestEffort outputs asynchronously - they don't block the response
 	if len(h.bestEffortOutputs) > 0 {
 		h.bestEffortWg.Go(func() {
 			forwardToBestEffortOutputs(h.shutdownCtx, processedData, h.bestEffortOutputs, log)
 		})
 	}
 
-	log.Info("Forwarded audit events to guaranteed outputs")
+	log.Info("Forwarded audit events to Guaranteed outputs")
 	w.WriteHeader(http.StatusOK)
 	metrics.AuditSucceeded.Inc()
 }
 
 // Shutdown initiates graceful shutdown of the handler, waiting for in-flight
-// best-effort outputs to complete within the given timeout.
-// It waits for all active best-effort goroutines to finish, canceling the
+// BestEffort outputs to complete within the given timeout.
+// It waits for all active BestEffort goroutines to finish, canceling the
 // shutdown context only after timeout to stop any remaining work.
 func (h *Handler) Shutdown(timeout time.Duration) error {
 	h.logger.Info("Initiating handler shutdown", "timeout", timeout.String())
@@ -125,13 +125,13 @@ func (h *Handler) Shutdown(timeout time.Duration) error {
 
 	select {
 	case <-done:
-		h.logger.Info("All best-effort outputs completed successfully or maximum retries reached")
+		h.logger.Info("All BestEffort outputs completed successfully or maximum retries reached")
 		h.shutdownCancel()
 		return nil
 	case <-time.After(timeout):
 		// Cancel shutdown context to stop any ongoing retries
 		h.shutdownCancel()
-		return fmt.Errorf("shutdown timeout exceeded after %s, some best-effort outputs may not have completed", timeout)
+		return fmt.Errorf("shutdown timeout exceeded after %s, some BestEffort outputs may not have completed", timeout)
 	}
 }
 
@@ -141,20 +141,24 @@ func writeErrorResponse(w http.ResponseWriter, log logr.Logger, statusCode int, 
 	}
 }
 
-// forwardToGuaranteedOutputs forwards audit events to guaranteed outputs.
-// All guaranteed outputs must succeed for the request to be considered successful.
+// forwardToGuaranteedOutputs forwards audit events to Guaranteed outputs.
+// All Guaranteed outputs must succeed for the request to be considered successful.
 func forwardToGuaranteedOutputs(ctx context.Context,
 	data []byte,
 	outputs []output.Output,
 	log logr.Logger,
 ) error {
+	logAndMeterOutputErr := func(out output.Output, err error) error {
+		log.Error(err, "Failed to forward to Guaranteed output", "output", out.Name())
+		metrics.OutputFailed.WithLabelValues(out.Name(), string(configv1alpha1.DeliveryModeGuaranteed)).Inc()
+		return fmt.Errorf("output %s failed: %w", out.Name(), err)
+	}
+
 	// Single output, no need to initialize a wait group and spawn goroutines
 	if len(outputs) == 1 {
 		out := outputs[0]
 		if err := out.Send(ctx, data); err != nil {
-			log.Error(err, "Failed to forward to guaranteed output", "output", out.Name())
-			metrics.OutputFailed.WithLabelValues(out.Name(), string(configv1alpha1.DeliveryModeGuaranteed)).Inc()
-			return fmt.Errorf("output %s failed: %w", out.Name(), err)
+			return logAndMeterOutputErr(out, err)
 		}
 		metrics.OutputSucceeded.WithLabelValues(out.Name(), string(configv1alpha1.DeliveryModeGuaranteed)).Inc()
 		return nil
@@ -168,9 +172,7 @@ func forwardToGuaranteedOutputs(ctx context.Context,
 		go func(o output.Output) {
 			defer wg.Done()
 			if err := o.Send(ctx, data); err != nil {
-				log.Error(err, "Failed to forward to guaranteed output", "output", o.Name())
-				metrics.OutputFailed.WithLabelValues(o.Name(), string(configv1alpha1.DeliveryModeGuaranteed)).Inc()
-				errCh <- fmt.Errorf("output %s failed: %w", o.Name(), err)
+				errCh <- logAndMeterOutputErr(o, err)
 			} else {
 				metrics.OutputSucceeded.WithLabelValues(o.Name(), string(configv1alpha1.DeliveryModeGuaranteed)).Inc()
 			}
@@ -187,13 +189,13 @@ func forwardToGuaranteedOutputs(ctx context.Context,
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("one or more guaranteed outputs failed: %v", errs)
+		return fmt.Errorf("one or more guaranteed outputs failed: %w", errors.Join(errs...))
 	}
 
 	return nil
 }
 
-// forwardToBestEffortOutputs forwards audit events to best-effort outputs asynchronously.
+// forwardToBestEffortOutputs forwards audit events to BestEffort outputs asynchronously.
 // Failures are logged and tracked in metrics but do not affect the request status.
 func forwardToBestEffortOutputs(
 	ctx context.Context,
@@ -209,10 +211,10 @@ func forwardToBestEffortOutputs(
 		go func(o output.Output) {
 			defer wg.Done()
 			if err := o.Send(ctx, data); err != nil {
-				log.Error(err, "Failed to forward to best-effort output", "output", o.Name())
+				log.Error(err, "Failed to forward to BestEffort output", "output", o.Name())
 				metrics.OutputFailed.WithLabelValues(o.Name(), string(configv1alpha1.DeliveryModeBestEffort)).Inc()
 			} else {
-				log.Info("Successfully forwarded to best-effort output", "output", o.Name())
+				log.Info("Successfully forwarded to BestEffort output", "output", o.Name())
 				metrics.OutputSucceeded.WithLabelValues(o.Name(), string(configv1alpha1.DeliveryModeBestEffort)).Inc()
 			}
 		}(out)

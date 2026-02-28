@@ -33,7 +33,7 @@ func SetDefaults_Server(obj *Server) {
 
 // SetDefaults_Outputs sets defaults for the outputs configuration.
 func SetDefaults_Outputs(outputs []Output) {
-	// If there is exactly one output, it is implicitly guaranteed
+	// If there is exactly one output, it is implicitly Guaranteed
 	if len(outputs) == 1 {
 		if outputs[0].DeliveryMode == "" {
 			outputs[0].DeliveryMode = DeliveryModeGuaranteed

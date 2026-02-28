@@ -18,8 +18,8 @@ func NewHTTPOutputsWithOptions(allOutputs []configv1alpha1.Output, deliveryMode 
 	var outputs []output.Output
 	for _, outputConfig := range allOutputs {
 		if outputConfig.HTTP != nil && outputConfig.DeliveryMode == deliveryMode {
-			if http, err := http.New(outputConfig.HTTP, httpOpts...); err == nil {
-				outputs = append(outputs, http)
+			if httpOutput, err := http.New(outputConfig.HTTP, httpOpts...); err == nil {
+				outputs = append(outputs, httpOutput)
 			} else {
 				return nil, fmt.Errorf("failed to create HTTP output: %w", err)
 			}

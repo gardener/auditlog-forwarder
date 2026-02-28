@@ -224,7 +224,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 		})
 
 		Context("when multiple outputs are configured with correct delivery modes", func() {
-			It("should return no errors when exactly one is guaranteed", func() {
+			It("should return no errors when exactly one is Guaranteed", func() {
 				config.Outputs = []configv1alpha1.Output{
 					{
 						DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
@@ -244,7 +244,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				Expect(errs).To(BeEmpty())
 			})
 
-			It("should return error when no output is guaranteed", func() {
+			It("should return error when no output is Guaranteed", func() {
 				config.Outputs = []configv1alpha1.Output{
 					{
 						DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
@@ -264,11 +264,11 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("outputs"),
-					"Detail": ContainSubstring("exactly one output must have 'guaranteed' delivery mode"),
+					"Detail": ContainSubstring("exactly one output must have 'Guaranteed' delivery mode"),
 				}))))
 			})
 
-			It("should return error when more than one output is guaranteed", func() {
+			It("should return error when more than one output is Guaranteed", func() {
 				config.Outputs = []configv1alpha1.Output{
 					{
 						DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
@@ -288,13 +288,13 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("outputs"),
-					"Detail": ContainSubstring("only one output can have 'guaranteed' delivery mode"),
+					"Detail": ContainSubstring("only one output can have 'Guaranteed' delivery mode"),
 				}))))
 			})
 		})
 
 		Context("when single output has invalid delivery mode", func() {
-			It("should return error for best-effort single output", func() {
+			It("should return error for BestEffort single output", func() {
 				config.Outputs = []configv1alpha1.Output{
 					{
 						DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
@@ -308,7 +308,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("outputs[0].deliveryMode"),
-					"Detail": ContainSubstring("single output must have 'guaranteed' delivery mode"),
+					"Detail": ContainSubstring("single output must have 'Guaranteed' delivery mode"),
 				}))))
 			})
 
@@ -353,7 +353,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("outputs[0].deliveryMode"),
-						"Detail": ContainSubstring("single output must have 'guaranteed' delivery mode"),
+						"Detail": ContainSubstring("single output must have 'Guaranteed' delivery mode"),
 					})),
 				))
 			})

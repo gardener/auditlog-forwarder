@@ -212,10 +212,10 @@ DeliveryMode
 <td>
 <em>(Optional)</em>
 <p>DeliveryMode specifies how messages are delivered to this output.
-&ldquo;guaranteed&rdquo; means the request is considered successful only if this output succeeds.
-&ldquo;best-effort&rdquo; means delivery is attempted but failures don&rsquo;t affect request success.
-When only one output is configured, it is implicitly &ldquo;guaranteed&rdquo;.
-When multiple outputs are configured, exactly one must be &ldquo;guaranteed&rdquo;.</p>
+&ldquo;Guaranteed&rdquo; means the request is considered successful only if this output succeeds.
+&ldquo;BestEffort&rdquo; means delivery is attempted but failures don&rsquo;t affect request success.
+When only one output is configured, it is implicitly &ldquo;Guaranteed&rdquo;.
+When multiple outputs are configured, exactly one must be &ldquo;Guaranteed&rdquo;.</p>
 </td>
 </tr>
 <tr>

@@ -30,7 +30,7 @@ var _ = Describe("Output Factory", func() {
 	})
 
 	Describe("NewHttpOutputsWithOptions", func() {
-		It("should create HTTP outputs with guaranteed delivery mode", func() {
+		It("should create HTTP outputs with Guaranteed delivery mode", func() {
 			outputs := []configv1alpha1.Output{
 				{
 					DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
@@ -52,7 +52,7 @@ var _ = Describe("Output Factory", func() {
 			Expect(result[0].Name()).To(Equal(testServer.URL))
 		})
 
-		It("should create HTTP outputs with best-effort delivery mode", func() {
+		It("should create HTTP outputs with BestEffort delivery mode", func() {
 			outputs := []configv1alpha1.Output{
 				{
 					DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,

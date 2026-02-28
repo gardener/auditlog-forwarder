@@ -28,10 +28,10 @@ type DeliveryMode string
 const (
 	// DeliveryModeGuaranteed indicates that delivery to this output is required for request success.
 	// Messages will be retried on failure.
-	DeliveryModeGuaranteed DeliveryMode = "guaranteed"
+	DeliveryModeGuaranteed DeliveryMode = "Guaranteed"
 	// DeliveryModeBestEffort indicates that delivery is attempted but failures don't affect request success.
 	// Messages may be delivered multiple times or not at all.
-	DeliveryModeBestEffort DeliveryMode = "best-effort"
+	DeliveryModeBestEffort DeliveryMode = "BestEffort"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -94,10 +94,10 @@ type TLS struct {
 // Output defines an output to forward audit logs to.
 type Output struct {
 	// DeliveryMode specifies how messages are delivered to this output.
-	// "guaranteed" means the request is considered successful only if this output succeeds.
-	// "best-effort" means delivery is attempted but failures don't affect request success.
-	// When only one output is configured, it is implicitly "guaranteed".
-	// When multiple outputs are configured, exactly one must be "guaranteed".
+	// "Guaranteed" means the request is considered successful only if this output succeeds.
+	// "BestEffort" means delivery is attempted but failures don't affect request success.
+	// When only one output is configured, it is implicitly "Guaranteed".
+	// When multiple outputs are configured, exactly one must be "Guaranteed".
 	// +optional
 	DeliveryMode DeliveryMode `json:"deliveryMode,omitempty"`
 	// HTTP contains the HTTP output configuration.

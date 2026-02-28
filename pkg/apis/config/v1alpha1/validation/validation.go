@@ -114,7 +114,7 @@ func validateOutputs(outputs []configv1alpha1.Output, fldPath *field.Path) field
 		return allErrs
 	}
 
-	// Validate each output and count guaranteed outputs
+	// Validate each output and count Guaranteed outputs
 	guaranteedCount := 0
 	for i, output := range outputs {
 		outputPath := fldPath.Index(i)
@@ -127,20 +127,20 @@ func validateOutputs(outputs []configv1alpha1.Output, fldPath *field.Path) field
 
 	// Validate delivery mode constraints
 	if len(outputs) == 1 {
-		// Single output must be guaranteed (should be set by defaults, but validate anyway)
+		// Single output must be Guaranteed (should be set by defaults, but validate anyway)
 		if outputs[0].DeliveryMode != configv1alpha1.DeliveryModeGuaranteed {
 			allErrs = append(allErrs, field.Invalid(fldPath.Index(0).Child("deliveryMode"),
 				outputs[0].DeliveryMode,
-				"single output must have 'guaranteed' delivery mode"))
+				"single output must have 'Guaranteed' delivery mode"))
 		}
 	} else {
-		// Multiple outputs: exactly one must be guaranteed
+		// Multiple outputs: exactly one must be Guaranteed
 		if guaranteedCount == 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath, guaranteedCount,
-				"exactly one output must have 'guaranteed' delivery mode when multiple outputs are configured"))
+				"exactly one output must have 'Guaranteed' delivery mode when multiple outputs are configured"))
 		} else if guaranteedCount > 1 {
 			allErrs = append(allErrs, field.Invalid(fldPath, guaranteedCount,
-				"only one output can have 'guaranteed' delivery mode"))
+				"only one output can have 'Guaranteed' delivery mode"))
 		}
 	}
 
