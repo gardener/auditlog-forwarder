@@ -189,7 +189,7 @@ func forwardToGuaranteedOutputs(ctx context.Context,
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("one or more guaranteed outputs failed: %w", errors.Join(errs...))
+		return fmt.Errorf("one or more Guaranteed outputs failed: %w", errors.Join(errs...))
 	}
 
 	return nil
