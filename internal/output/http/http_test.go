@@ -162,7 +162,7 @@ var _ = Describe("HTTP Output", func() {
 			var attempts int32
 			originalBackoff := httpoutput.BackoffFunc
 			originalSleep := httpoutput.SleepFunc
-			httpoutput.BackoffFunc = func(_ int) time.Duration { return 0 }
+			httpoutput.BackoffFunc = func(_ int, _, _ time.Duration) time.Duration { return 0 }
 			httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
 			DeferCleanup(func() {
 				httpoutput.BackoffFunc = originalBackoff

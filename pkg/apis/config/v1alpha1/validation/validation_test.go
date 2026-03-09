@@ -35,6 +35,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			},
 			Outputs: []configv1alpha1.Output{
 				{
+					DeliveryMode: configv1alpha1.DeliveryModeGuaranteed, // this is defaulted for single output, but set explicitly for clarity
 					HTTP: &configv1alpha1.OutputHTTP{
 						URL: "https://example.com/audit",
 					},
@@ -222,15 +223,37 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 			})
 		})
 
-		Context("when multiple outputs are configured", func() {
-			It("should return an error", func() {
+		Context("when multiple outputs are configured with correct delivery modes", func() {
+			It("should return no errors when exactly one is Guaranteed", func() {
 				config.Outputs = []configv1alpha1.Output{
 					{
+						DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
 						HTTP: &configv1alpha1.OutputHTTP{
 							URL: "https://example1.com/audit",
 						},
 					},
 					{
+						DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example2.com/audit",
+						},
+					},
+				}
+
+				errs := ValidateAuditlogForwarder(config)
+				Expect(errs).To(BeEmpty())
+			})
+
+			It("should return error when no output is Guaranteed", func() {
+				config.Outputs = []configv1alpha1.Output{
+					{
+						DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example1.com/audit",
+						},
+					},
+					{
+						DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
 						HTTP: &configv1alpha1.OutputHTTP{
 							URL: "https://example2.com/audit",
 						},
@@ -239,8 +262,76 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 				errs := ValidateAuditlogForwarder(config)
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("outputs"),
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("outputs"),
+					"Detail": ContainSubstring("exactly one output must have 'Guaranteed' delivery mode"),
+				}))))
+			})
+
+			It("should return error when more than one output is Guaranteed", func() {
+				config.Outputs = []configv1alpha1.Output{
+					{
+						DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example1.com/audit",
+						},
+					},
+					{
+						DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example2.com/audit",
+						},
+					},
+				}
+
+				errs := ValidateAuditlogForwarder(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("outputs"),
+					"Detail": ContainSubstring("only one output can have 'Guaranteed' delivery mode"),
+				}))))
+			})
+		})
+
+		Context("when single output has invalid delivery mode", func() {
+			It("should return error for BestEffort single output", func() {
+				config.Outputs = []configv1alpha1.Output{
+					{
+						DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example.com/audit",
+						},
+					},
+				}
+
+				errs := ValidateAuditlogForwarder(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("outputs[0].deliveryMode"),
+					"Detail": ContainSubstring("single output must have 'Guaranteed' delivery mode"),
+				}))))
+			})
+
+			It("should return error for unsupported delivery mode", func() {
+				config.Outputs = []configv1alpha1.Output{
+					{
+						DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example1.com/audit",
+						},
+					},
+					{
+						DeliveryMode: configv1alpha1.DeliveryMode("invalid"),
+						HTTP: &configv1alpha1.OutputHTTP{
+							URL: "https://example2.com/audit",
+						},
+					},
+				}
+
+				errs := ValidateAuditlogForwarder(config)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeNotSupported),
+					"Field": Equal("outputs[1].deliveryMode"),
 				}))))
 			})
 		})
@@ -254,10 +345,17 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				}
 
 				errs := ValidateAuditlogForwarder(config)
-				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("outputs[0]"),
-				}))))
+				Expect(errs).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("outputs[0]"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("outputs[0].deliveryMode"),
+						"Detail": ContainSubstring("single output must have 'Guaranteed' delivery mode"),
+					})),
+				))
 			})
 		})
 

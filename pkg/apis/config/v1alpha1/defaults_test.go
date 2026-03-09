@@ -137,4 +137,86 @@ var _ = Describe("Defaults", func() {
 			Expect(serverConfig.TLS.KeyFile).To(BeEmpty())
 		})
 	})
+
+	Describe("#SetDefaults_Outputs", func() {
+		It("should default single output without delivery mode to Guaranteed", func() {
+			outputs := []Output{
+				{
+					HTTP: &OutputHTTP{URL: "http://example.com"},
+				},
+			}
+
+			SetDefaults_Outputs(outputs)
+
+			Expect(outputs[0].DeliveryMode).To(Equal(DeliveryModeGuaranteed))
+		})
+
+		It("should not override delivery mode for single output when already set", func() {
+			outputs := []Output{
+				{
+					HTTP:         &OutputHTTP{URL: "http://example.com"},
+					DeliveryMode: DeliveryModeBestEffort,
+				},
+			}
+
+			SetDefaults_Outputs(outputs)
+
+			Expect(outputs[0].DeliveryMode).To(Equal(DeliveryModeBestEffort))
+		})
+
+		It("should default multiple outputs without delivery modes to BestEffort", func() {
+			outputs := []Output{
+				{HTTP: &OutputHTTP{URL: "http://example1.com"}},
+				{HTTP: &OutputHTTP{URL: "http://example2.com"}},
+				{HTTP: &OutputHTTP{URL: "http://example3.com"}},
+			}
+
+			SetDefaults_Outputs(outputs)
+
+			Expect(outputs[0].DeliveryMode).To(Equal(DeliveryModeBestEffort))
+			Expect(outputs[1].DeliveryMode).To(Equal(DeliveryModeBestEffort))
+			Expect(outputs[2].DeliveryMode).To(Equal(DeliveryModeBestEffort))
+		})
+
+		It("should not override delivery modes for multiple outputs when already set", func() {
+			outputs := []Output{
+				{
+					HTTP:         &OutputHTTP{URL: "http://example1.com"},
+					DeliveryMode: DeliveryModeGuaranteed,
+				},
+				{
+					HTTP:         &OutputHTTP{URL: "http://example2.com"},
+					DeliveryMode: DeliveryModeGuaranteed,
+				},
+			}
+
+			SetDefaults_Outputs(outputs)
+
+			Expect(outputs[0].DeliveryMode).To(Equal(DeliveryModeGuaranteed))
+			Expect(outputs[1].DeliveryMode).To(Equal(DeliveryModeGuaranteed))
+		})
+
+		It("should default only unset delivery modes for multiple outputs", func() {
+			outputs := []Output{
+				{
+					HTTP:         &OutputHTTP{URL: "http://example1.com"},
+					DeliveryMode: DeliveryModeGuaranteed,
+				},
+				{
+					HTTP: &OutputHTTP{URL: "http://example2.com"},
+					// No delivery mode set
+				},
+				{
+					HTTP:         &OutputHTTP{URL: "http://example3.com"},
+					DeliveryMode: DeliveryModeGuaranteed,
+				},
+			}
+
+			SetDefaults_Outputs(outputs)
+
+			Expect(outputs[0].DeliveryMode).To(Equal(DeliveryModeGuaranteed))
+			Expect(outputs[1].DeliveryMode).To(Equal(DeliveryModeBestEffort))
+			Expect(outputs[2].DeliveryMode).To(Equal(DeliveryModeGuaranteed))
+		})
+	})
 })

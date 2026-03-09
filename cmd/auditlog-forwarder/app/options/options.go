@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/gardener/auditlog-forwarder/internal/output"
 	outputfactory "github.com/gardener/auditlog-forwarder/internal/output/factory"
+	outputhttp "github.com/gardener/auditlog-forwarder/internal/output/http"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
 	"github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1/validation"
 )
@@ -93,11 +95,28 @@ func (o *Options) ApplyTo(server *Config) error {
 
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
-	outputs, err := outputfactory.NewFromConfigs(o.Config.Outputs)
+	guaranteedOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
+		o.Config.Outputs,
+		configv1alpha1.DeliveryModeGuaranteed,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to create outputs: %w", err)
+		return fmt.Errorf("failed to create Guaranteed outputs: %w", err)
 	}
-	server.Outputs = outputs
+
+	// Purposefully use different backoff settings for BestEffort outputs
+	// in order to give more time to the target system to receive the events in case of transient errors.
+	bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
+		o.Config.Outputs,
+		configv1alpha1.DeliveryModeBestEffort,
+		outputhttp.WithMaxSendAttempts(6),
+		outputhttp.WithBaseBackoff(1*time.Second),
+		outputhttp.WithMaxBackoff(6*time.Second),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create BestEffort outputs: %w", err)
+	}
+	server.OutputsGuaranteed = guaranteedOutputs
+	server.OutputsBestEffort = bestEffortOutputs
 
 	return nil
 }
@@ -151,6 +170,8 @@ type Config struct {
 	Serving           Serving
 	InjectAnnotations map[string]string
 	Outputs           []output.Output
+	OutputsGuaranteed []output.Output
+	OutputsBestEffort []output.Output
 }
 
 // Serving contains the configuration for the auditlog forwarder.

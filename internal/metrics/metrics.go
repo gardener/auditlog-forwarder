@@ -14,6 +14,7 @@ const (
 	subsystemReceived  = "received"
 	subsystemSucceeded = "succeeded"
 	subsystemFailed    = "failed"
+	subsystemOutput    = "output"
 	name               = "total"
 )
 
@@ -38,4 +39,18 @@ var (
 		Name:      name,
 		Help:      "Total number of failed processed audit requests.",
 	})
+
+	OutputSucceeded = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystemOutput,
+		Name:      "succeeded_total",
+		Help:      "Total number of successful sends per output.",
+	}, []string{"output", "delivery_mode"})
+
+	OutputFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystemOutput,
+		Name:      "failed_total",
+		Help:      "Total number of failed sends per output.",
+	}, []string{"output", "delivery_mode"})
 )

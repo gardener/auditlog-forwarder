@@ -72,6 +72,7 @@ var _ = Describe("Handler", func() {
 
 		outputConfigs := []configv1alpha1.Output{
 			{
+				DeliveryMode: configv1alpha1.DeliveryModeGuaranteed,
 				HTTP: &configv1alpha1.OutputHTTP{
 					URL: testServer.URL,
 				},
@@ -79,16 +80,23 @@ var _ = Describe("Handler", func() {
 		}
 
 		var err error
-		outputInsts, err = outputfactory.NewFromConfigs(outputConfigs)
+		outputInsts, err = outputfactory.NewHTTPOutputsWithOptions(outputConfigs, configv1alpha1.DeliveryModeGuaranteed)
 		Expect(err).NotTo(HaveOccurred())
 
 		// reinitialize metrics before each test
-		metrics.AuditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
-		metrics.AuditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
-		metrics.AuditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString(10)})
+		metrics.AuditReceived = promauto.NewCounter(prometheus.CounterOpts{Name: randString()})
+		metrics.AuditSucceeded = promauto.NewCounter(prometheus.CounterOpts{Name: randString()})
+		metrics.AuditFailed = promauto.NewCounter(prometheus.CounterOpts{Name: randString()})
+		metrics.OutputSucceeded = promauto.NewCounterVec(prometheus.CounterOpts{Name: randString()}, []string{"output", "delivery_mode"})
+		metrics.OutputFailed = promauto.NewCounterVec(prometheus.CounterOpts{Name: randString()}, []string{"output", "delivery_mode"})
 	})
 
 	AfterEach(func() {
+		// Shutdown handler to wait for any async BestEffort outputs to complete
+		// This prevents race conditions when the next test reinitializes global metrics
+		if handler != nil {
+			Expect(handler.Shutdown(time.Second)).To(Succeed())
+		}
 		if testServer != nil {
 			testServer.Close()
 		}
@@ -97,18 +105,18 @@ var _ = Describe("Handler", func() {
 	Describe("NewHandler", func() {
 		It("should create a handler with output clients", func() {
 			var err error
-			handler, err = NewHandler(logger, processors, outputInsts)
+			handler, err = NewHandler(logger, processors, outputInsts, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(handler).NotTo(BeNil())
-			Expect(handler.outputs).To(HaveLen(1))
-			Expect(handler.outputs[0].Name()).To(Equal(testServer.URL))
+			Expect(handler.guaranteedOutputs).To(HaveLen(1))
+			Expect(handler.guaranteedOutputs[0].Name()).To(Equal(testServer.URL))
 		})
 
 		It("should return error when no outputs configured", func() {
 			var err error
-			handler, err = NewHandler(logger, processors, []output.Output{})
+			handler, err = NewHandler(logger, processors, []output.Output{}, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no outputs configured"))
+			Expect(err.Error()).To(ContainSubstring("at least one Guaranteed output must be configured"))
 			Expect(handler).To(BeNil())
 		})
 	})
@@ -116,7 +124,7 @@ var _ = Describe("Handler", func() {
 	Describe("ServeHTTP", func() {
 		BeforeEach(func() {
 			var err error
-			handler, err = NewHandler(logger, processors, outputInsts)
+			handler, err = NewHandler(logger, processors, outputInsts, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -135,7 +143,7 @@ var _ = Describe("Handler", func() {
 
 			processorsChained := []processor.Processor{p1, p2}
 			var err error
-			handler, err = NewHandler(logger, processorsChained, outputInsts)
+			handler, err = NewHandler(logger, processorsChained, outputInsts, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			initial := []byte("A")
@@ -150,6 +158,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 
 		It("should process audit events and forward to outputs", func() {
@@ -198,6 +208,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 
 		It("should return error when output fails", func() {
@@ -231,6 +243,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(1.0))
 		})
 
 		It("should handle malformed request body", func() {
@@ -246,6 +260,8 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
 		})
 
 		It("should return error when reading request fails", func() {
@@ -260,6 +276,127 @@ var _ = Describe("Handler", func() {
 			Expect(getMetricValue(metrics.AuditReceived)).To(Equal(1.0))
 			Expect(getMetricValue(metrics.AuditSucceeded)).To(Equal(0.0))
 			Expect(getMetricValue(metrics.AuditFailed)).To(Equal(1.0))
+			Expect(getMetricValue(metrics.OutputSucceeded)).To(Equal(0.0))
+			Expect(getMetricValue(metrics.OutputFailed)).To(Equal(0.0))
+		})
+	})
+
+	Describe("Shutdown", func() {
+		var (
+			bestEffortServer   *httptest.Server
+			bestEffortResponse []byte
+		)
+
+		BeforeEach(func() {
+			bestEffortServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				Expect(err).NotTo(HaveOccurred())
+				bestEffortResponse = body
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			outputConfigs := []configv1alpha1.Output{
+				{
+					DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+					HTTP: &configv1alpha1.OutputHTTP{
+						URL: bestEffortServer.URL,
+					},
+				},
+			}
+
+			var err error
+			bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(outputConfigs, configv1alpha1.DeliveryModeBestEffort)
+			Expect(err).NotTo(HaveOccurred())
+
+			handler, err = NewHandler(logger, processors, outputInsts, bestEffortOutputs)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if bestEffortServer != nil {
+				bestEffortServer.Close()
+			}
+		})
+
+		It("should wait for BestEffort outputs to complete during shutdown", func() {
+			eventList := &audit.EventList{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "audit.k8s.io/v1",
+					Kind:       "EventList",
+				},
+				Items: []audit.Event{{Verb: "create"}},
+			}
+
+			body, err := helper.EncodeEventList(eventList)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+
+			Expect(w.Code).To(Equal(http.StatusOK))
+
+			// Shutdown should wait for BestEffort output to complete
+			Expect(handler.Shutdown(2 * time.Second)).To(Succeed())
+			Eventually(func() bool { return len(bestEffortResponse) > 0 }, 50*time.Millisecond).Should(BeTrue())
+		})
+
+		It("should return timeout error if BestEffort outputs take too long", func() {
+			slowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				time.Sleep(time.Second) // Longer than shutdown timeout
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer slowServer.Close()
+
+			slowOutputConfigs := []configv1alpha1.Output{
+				{
+					DeliveryMode: configv1alpha1.DeliveryModeBestEffort,
+					HTTP: &configv1alpha1.OutputHTTP{
+						URL: slowServer.URL,
+					},
+				},
+			}
+
+			slowOutputs, err := outputfactory.NewHTTPOutputsWithOptions(slowOutputConfigs, configv1alpha1.DeliveryModeBestEffort)
+			Expect(err).NotTo(HaveOccurred())
+
+			handler, err = NewHandler(logger, processors, outputInsts, slowOutputs)
+			Expect(err).NotTo(HaveOccurred())
+
+			eventList := &audit.EventList{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "audit.k8s.io/v1",
+					Kind:       "EventList",
+				},
+				Items: []audit.Event{{Verb: "create"}},
+			}
+
+			body, err := helper.EncodeEventList(eventList)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest(http.MethodPost, "/audit", bytes.NewReader(body))
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusOK))
+
+			// Shutdown with short timeout should timeout
+			err = handler.Shutdown(100 * time.Millisecond)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("shutdown timeout exceeded"))
+		})
+
+		It("should complete shutdown immediately when no BestEffort outputs are in flight", func() {
+			Expect(handler.Shutdown(5 * time.Second)).To(Succeed())
+		})
+
+		It("should cancel shutdown context after successful shutdown", func() {
+			initialCtx := handler.shutdownCtx
+			Expect(initialCtx.Err()).To(BeNil())
+
+			Expect(handler.Shutdown(1 * time.Second)).To(Succeed())
+			Expect(initialCtx.Err()).To(Equal(context.Canceled))
 		})
 	})
 })
@@ -302,8 +439,8 @@ func collect(col prometheus.Collector, do func(*prommodels.Metric)) {
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func randString(n int) string {
-	b := make([]rune, n)
+func randString() string {
+	b := make([]rune, 10)
 	for i := range b {
 		b[i] = letterRunes[rand.IntN(len(letterRunes))] //nolint:gosec
 	}
