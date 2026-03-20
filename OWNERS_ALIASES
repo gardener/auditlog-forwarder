@@ -4,6 +4,7 @@ aliases:
   auditlog-forwarder-reviewers:
   - dimityrmirchev
   - vpnachev
+  - theoddora
   auditlog-forwarder-approvers:
   - dimityrmirchev
   - vpnachev
