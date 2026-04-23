@@ -48,7 +48,7 @@ check: $(GOIMPORTS) $(GOLANGCI_LINT) $(TYPOS)
 	@bash $(GARDENER_HACK_DIR)/check-file-names.sh
 
 .PHONY: generate
-generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS)
+generate: $(CONTROLLER_GEN) $(CRD_REF_DOCS)
 	@go mod download
 	@REPO_ROOT=$(REPO_ROOT) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) bash $(GARDENER_HACK_DIR)/generate-sequential.sh ./cmd/... ./internal/... ./pkg/...
 	@REPO_ROOT=$(REPO_ROOT) GARDENER_HACK_DIR=$(GARDENER_HACK_DIR) $(REPO_ROOT)/hack/update-codegen.sh
