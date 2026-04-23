@@ -10,7 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,9 +39,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("Starting HTTP health server on port %d", *healthPort)
+		slog.Info("Starting HTTP health server", "port", *healthPort)
 		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Health server failed: %v", err)
+			slog.Error("Health server failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -57,20 +58,31 @@ func main() {
 	if *tlsCertFile != "" && *tlsKeyFile != "" {
 		tlsConfig, err := setupTLSConfig(*tlsCertFile, *tlsKeyFile, *tlsCAFile)
 		if err != nil {
-			log.Fatalf("Failed to setup TLS configuration: %v", err)
+			slog.Error("Failed to setup TLS configuration", "error", err)
+			os.Exit(1)
 		}
 		srv.TLSConfig = tlsConfig
 
 		if *tlsCAFile != "" {
-			log.Printf("Starting HTTPS echo server with mTLS on port %d", *port)
+			slog.Info("Starting HTTPS echo server with mTLS", "port", *port)
 		} else {
-			log.Printf("Starting HTTPS echo server on port %d", *port)
+			slog.Info("Starting HTTPS echo server", "port", *port)
 		}
-		log.Fatal(srv.ListenAndServeTLS("", ""))
+		if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			slog.Error("HTTPS echo server failed", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("HTTPS echo server shutdown completed")
+		os.Exit(0)
 	}
 
-	log.Printf("Starting HTTP echo server on port %d", *port)
-	log.Fatal(srv.ListenAndServe())
+	slog.Info("Starting HTTP echo server", "port", *port)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("HTTP echo server failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("HTTP echo server shutdown completed")
+	os.Exit(0)
 }
 
 // setupTLSConfig creates a TLS configuration with optional client certificate verification
@@ -101,7 +113,7 @@ func setupTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
 		tlsConfig.ClientCAs = caCertPool
 		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 
-		log.Printf("Client certificate verification enabled using CA: %s", caFile)
+		slog.Info("Client certificate verification enabled", "caFilePath", caFile)
 	}
 
 	return tlsConfig, nil
@@ -113,7 +125,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 		_, err := w.Write([]byte(`{"status": "ok"}`))
 		if err != nil {
-			log.Print(err)
+			slog.Error("Failed to write health response", "error", err)
 		}
 		return
 	}
@@ -124,17 +136,18 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // auditHandler handles audit requests (renamed from genericHandler)
 func auditHandler(w http.ResponseWriter, r *http.Request) {
+	logArgs := []any{"method", r.Method, "path", r.URL.Path}
+
 	// Log client certificate information if present
-	var clientCertInfo string
 	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
 		cert := r.TLS.PeerCertificates[0]
-		clientCertInfo = fmt.Sprintf(" [Client: %s, Issuer: %s]", cert.Subject.CommonName, cert.Issuer.CommonName)
+		logArgs = append(logArgs, "client", cert.Subject.CommonName, "issuer", cert.Issuer.CommonName)
 	}
 
-	if r.Method == http.MethodPost {
+	if *logBody && r.Method == http.MethodPost {
 		defer func() {
 			if err := r.Body.Close(); err != nil {
-				log.Printf("Error closing body: %s\n", err)
+				slog.Info("Error closing body:", "error", err)
 			}
 		}()
 		body, err := io.ReadAll(r.Body)
@@ -143,18 +156,15 @@ func auditHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"success": false}`, http.StatusInternalServerError)
 			return
 		}
-		if *logBody {
-			log.Printf("Method: %s, Path: %s%s, Body: %s", r.Method, r.URL.Path, clientCertInfo, string(body))
-		} else {
-			log.Printf("Method: %s, Path: %s%s", r.Method, r.URL.Path, clientCertInfo)
-		}
-	} else {
-		log.Printf("Method: %s, Path: %s%s", r.Method, r.URL.Path, clientCertInfo)
+
+		logArgs = append(logArgs, "body", string(body))
 	}
+
+	slog.Info("Handled request", logArgs...) //#nosec // G706: echo server intentionally logs request data, slog takes care of escaping special symbols to avoid log injection
 
 	w.Header().Add("Content-Type", "application/json")
 	_, err := w.Write([]byte(`{"success": true}`))
 	if err != nil {
-		log.Print(err)
+		slog.Info("Failed to write response", "error", err)
 	}
 }
