@@ -587,7 +587,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 
 		Context("when annotation key is too long", func() {
 			It("should return an error", func() {
-				longKey := strings.Repeat("a", 64) // 64 characters, exceeds 63 limit for name part
+				longKey := strings.Repeat("a", 64) // 64 bytes, exceeds 63 limit for name part
 				config.InjectAnnotations = map[string]string{
 					longKey: "value",
 				}
@@ -596,7 +596,7 @@ var _ = Describe("#ValidateAuditlogForwarderConfiguration", func() {
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("injectAnnotations"),
-					"Detail": Equal("name part must be no more than 63 characters"),
+					"Detail": Equal("name part must be no more than 63 bytes"),
 				}))))
 			})
 		})

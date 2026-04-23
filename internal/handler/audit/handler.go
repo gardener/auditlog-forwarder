@@ -46,7 +46,7 @@ func NewHandler(logger logr.Logger, processors []processor.Processor, guaranteed
 		return nil, errors.New("at least one Guaranteed output must be configured")
 	}
 
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background()) //#nosec // G118: Handler.Shutdown method is calling the Cancel func.
 
 	return &Handler{
 		logger:            logger,

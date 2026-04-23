@@ -4,17 +4,20 @@
 <a href="#config.auditlog-forwarder.gardener.cloud%2fv1alpha1">config.auditlog-forwarder.gardener.cloud/v1alpha1</a>
 </li>
 </ul>
+
 <h2 id="config.auditlog-forwarder.gardener.cloud/v1alpha1">config.auditlog-forwarder.gardener.cloud/v1alpha1</h2>
 <p>
-<p>Package v1alpha1 is a version of the API.</p>
+
 </p>
-Resource Types:
-<ul></ul>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.AuditlogForwarder">AuditlogForwarder
+
+<h3 id="auditlogforwarder">AuditlogForwarder
 </h3>
+
+
 <p>
-<p>AuditlogForwarder defines the configuration for the audit log forwarder.</p>
+AuditlogForwarder defines the configuration for the audit log forwarder.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -23,13 +26,12 @@ Resource Types:
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>log</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Log">
-Log
-</a>
+<a href="#log">Log</a>
 </em>
 </td>
 <td>
@@ -40,9 +42,7 @@ Log
 <td>
 <code>server</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Server">
-Server
-</a>
+<a href="#server">Server</a>
 </em>
 </td>
 <td>
@@ -53,9 +53,7 @@ Server
 <td>
 <code>outputs</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Output">
-[]Output
-</a>
+<a href="#output">Output</a> array
 </em>
 </td>
 <td>
@@ -66,7 +64,7 @@ Server
 <td>
 <code>injectAnnotations</code></br>
 <em>
-map[string]string
+object (keys:string, values:string)
 </em>
 </td>
 <td>
@@ -74,17 +72,23 @@ map[string]string
 <p>InjectAnnotations contains annotations to be injected into audit events.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.ClientTLS">ClientTLS
+
+
+<h3 id="clienttls">ClientTLS
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.OutputHTTP">OutputHTTP</a>)
+(<em>Appears on:</em><a href="#outputhttp">OutputHTTP</a>)
 </p>
+
 <p>
-<p>ClientTLS defines the TLS configuration for client.</p>
+ClientTLS defines the TLS configuration for client.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -93,6 +97,7 @@ map[string]string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>caFile</code></br>
@@ -129,26 +134,37 @@ string
 <p>KeyFile is the file containing the client private key for mutual TLS.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.DeliveryMode">DeliveryMode
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Output">Output</a>)
-</p>
-<p>
-<p>DeliveryMode defines how messages are delivered to an output.</p>
-</p>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.Log">Log
+
+
+<h3 id="deliverymode">DeliveryMode
 </h3>
+<p><em>Underlying type: string</em></p>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.AuditlogForwarder">AuditlogForwarder</a>)
+(<em>Appears on:</em><a href="#output">Output</a>)
 </p>
+
 <p>
-<p>Log defines the logging configuration for the audit log forwarder.</p>
+DeliveryMode defines how messages are delivered to an output.
 </p>
+
+
+<h3 id="log">Log
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#auditlogforwarder">AuditlogForwarder</a>)
+</p>
+
+<p>
+Log defines the logging configuration for the audit log forwarder.
+</p>
+
 <table>
 <thead>
 <tr>
@@ -157,6 +173,7 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>level</code></br>
@@ -181,17 +198,23 @@ string
 <p>Format is the output format for the logs. Must be one of [text,json].</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.Output">Output
+
+
+<h3 id="output">Output
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.AuditlogForwarder">AuditlogForwarder</a>)
+(<em>Appears on:</em><a href="#auditlogforwarder">AuditlogForwarder</a>)
 </p>
+
 <p>
-<p>Output defines an output to forward audit logs to.</p>
+Output defines an output to forward audit logs to.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -200,31 +223,24 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>deliveryMode</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.DeliveryMode">
-DeliveryMode
-</a>
+<a href="#deliverymode">DeliveryMode</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>DeliveryMode specifies how messages are delivered to this output.
-&ldquo;Guaranteed&rdquo; means the request is considered successful only if this output succeeds.
-&ldquo;BestEffort&rdquo; means delivery is attempted but failures don&rsquo;t affect request success.
-When only one output is configured, it is implicitly &ldquo;Guaranteed&rdquo;.
-When multiple outputs are configured, exactly one must be &ldquo;Guaranteed&rdquo;.</p>
+<p>DeliveryMode specifies how messages are delivered to this output.<br />"Guaranteed" means the request is considered successful only if this output succeeds.<br />"BestEffort" means delivery is attempted but failures don't affect request success.<br />When only one output is configured, it is implicitly "Guaranteed".<br />When multiple outputs are configured, exactly one must be "Guaranteed".</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>http</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.OutputHTTP">
-OutputHTTP
-</a>
+<a href="#outputhttp">OutputHTTP</a>
 </em>
 </td>
 <td>
@@ -232,17 +248,23 @@ OutputHTTP
 <p>HTTP contains the HTTP output configuration.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.OutputHTTP">OutputHTTP
+
+
+<h3 id="outputhttp">OutputHTTP
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Output">Output</a>)
+(<em>Appears on:</em><a href="#output">Output</a>)
 </p>
+
 <p>
-<p>OutputHTTP defines the configuration for an HTTP output.</p>
+OutputHTTP defines the configuration for an HTTP output.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -251,6 +273,7 @@ OutputHTTP
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>url</code></br>
@@ -266,9 +289,7 @@ string
 <td>
 <code>tls</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.ClientTLS">
-ClientTLS
-</a>
+<a href="#clienttls">ClientTLS</a>
 </em>
 </td>
 <td>
@@ -285,21 +306,26 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Compression defines the compression algorithm to use for the HTTP request body.
-Currently only &ldquo;gzip&rdquo; is supported. If empty, no compression is applied.</p>
+<p>Compression defines the compression algorithm to use for the HTTP request body.<br />Currently only "gzip" is supported. If empty, no compression is applied.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.Server">Server
+
+
+<h3 id="server">Server
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.AuditlogForwarder">AuditlogForwarder</a>)
+(<em>Appears on:</em><a href="#auditlogforwarder">AuditlogForwarder</a>)
 </p>
+
 <p>
-<p>Server defines the server configuration for the audit log forwarder.</p>
+Server defines the server configuration for the audit log forwarder.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -308,30 +334,29 @@ Currently only &ldquo;gzip&rdquo; is supported. If empty, no compression is appl
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>port</code></br>
 <em>
-int32
+integer
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Port is the port that the server will listen on.
-Defaults to 10443.</p>
+<p>Port is the port that the server will listen on.<br />Defaults to 10443.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>metricsPort</code></br>
 <em>
-int32
+integer
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>MetricsPort is the port that the server will listen on to serve metrics.
-Defaults to 8080.</p>
+<p>MetricsPort is the port that the server will listen on to serve metrics.<br />Defaults to 8080.</p>
 </td>
 </tr>
 <tr>
@@ -343,34 +368,37 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Address is the IP address that the server will listen on.
-If unspecified all interfaces will be used.</p>
+<p>Address is the IP address that the server will listen on.<br />If unspecified all interfaces will be used.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>tls</code></br>
 <em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.TLS">
-TLS
-</a>
+<a href="#tls">TLS</a>
 </em>
 </td>
 <td>
 <p>TLS contains the TLS configuration for the server.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="config.auditlog-forwarder.gardener.cloud/v1alpha1.TLS">TLS
+
+
+<h3 id="tls">TLS
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#config.auditlog-forwarder.gardener.cloud/v1alpha1.Server">Server</a>)
+(<em>Appears on:</em><a href="#server">Server</a>)
 </p>
+
 <p>
-<p>TLS defines the TLS configuration for the server.</p>
+TLS defines the TLS configuration for the server.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -379,6 +407,7 @@ TLS
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>certFile</code></br>
@@ -410,13 +439,11 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>ClientCAFile is the file containing the Certificate Authority to verify client certificates.
-If specified, client certificate verification will be enabled with RequireAndVerifyClientCert policy.</p>
+<p>ClientCAFile is the file containing the Certificate Authority to verify client certificates.<br />If specified, client certificate verification will be enabled with RequireAndVerifyClientCert policy.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<hr/>
-<p><em>
-Generated with <a href="https://github.com/ahmetb/gen-crd-api-reference-docs">gen-crd-api-reference-docs</a>
-</em></p>
+
+
