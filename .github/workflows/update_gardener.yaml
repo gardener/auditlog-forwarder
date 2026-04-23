@@ -12,9 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v6
       with:
-        go-version-file: go.mod
+        go-version: stable
 
     - name: Make tidy
       run: make tidy
@@ -25,7 +25,7 @@ jobs:
           echo "Nothing to commit, working tree clean. Exiting..."
           exit 0
         fi
-        
+
         git config user.name gardener-robot-ci-1
         git config user.email gardener.ci.user@gmail.com
         git add .
