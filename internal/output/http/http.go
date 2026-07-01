@@ -33,11 +33,11 @@ const (
 
 	headerContentEncoding = "Content-Encoding"
 	contentEncodingGzip   = "gzip"
-)
 
-// tlsReloadDebounce is the delay after a filesystem event before reloading TLS credentials.
-// Kubernetes secret updates produce multiple events in rapid succession; this coalesces them.
-var tlsReloadDebounce = 500 * time.Millisecond
+	// defaultTLSReloadDebounce is the default delay after a filesystem event before reloading TLS credentials.
+	// Kubernetes secret updates produce multiple events in rapid succession; this coalesces them.
+	defaultTLSReloadDebounce = 500 * time.Millisecond
+)
 
 var _ output.Output = (*Output)(nil)
 
@@ -52,6 +52,8 @@ type Output struct {
 	baseBackoff     time.Duration
 	maxBackoff      time.Duration
 
+	// tlsReloadDebounce is the delay before reloading TLS credentials after a filesystem event
+	tlsReloadDebounce time.Duration
 	// logger is used for logging TLS reload events in the background watcher
 	logger logr.Logger
 	// watcher is the fsnotify watcher for TLS credential files (nil if TLS is not configured)
@@ -71,12 +73,13 @@ func New(ctx context.Context, config *configv1alpha1.OutputHTTP, options ...Opti
 	}
 
 	o := &Output{
-		url:             config.URL,
-		compression:     config.Compression,
-		maxSendAttempts: 4,
-		baseBackoff:     500 * time.Millisecond,
-		maxBackoff:      3 * time.Second,
-		logger:          logr.Discard(),
+		url:               config.URL,
+		compression:       config.Compression,
+		maxSendAttempts:   4,
+		baseBackoff:       500 * time.Millisecond,
+		maxBackoff:        3 * time.Second,
+		tlsReloadDebounce: defaultTLSReloadDebounce,
+		logger:            logr.Discard(),
 	}
 	o.client.Store(client)
 
@@ -165,12 +168,15 @@ func (o *Output) Name() string {
 	return o.url
 }
 
-// Close stops the TLS file watcher and releases resources.
+// Close triggers shutdown of the TLS file watcher goroutine and releases resources.
+// It is safe to call multiple times.
 func (o *Output) Close() error {
-	if o.watcher != nil {
-		return o.watcher.Close()
+	if o.watcher == nil {
+		return nil
 	}
-	return nil
+	err := o.watcher.Close()
+	o.watcher = nil
+	return err
 }
 
 // startTLSWatcher begins watching the directories containing TLS credential files.
@@ -222,15 +228,15 @@ func (o *Output) watchTLSFiles(ctx context.Context, tlsConfig *configv1alpha1.Cl
 			if debounceTimer != nil {
 				debounceTimer.Stop()
 			}
-			debounceTimer = time.AfterFunc(tlsReloadDebounce, func() {
+			debounceTimer = time.AfterFunc(o.tlsReloadDebounce, func() {
 				o.reloadTLSClient(tlsConfig)
 			})
 
-		case _, ok := <-o.watcher.Errors:
+		case err, ok := <-o.watcher.Errors:
 			if !ok {
 				return
 			}
-			// Watcher errors are non-fatal; continue watching
+			o.logger.Error(err, "File watcher error")
 		}
 	}
 }

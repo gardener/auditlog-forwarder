@@ -42,10 +42,6 @@ var _ = Describe("TLS Hot Reload", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		ctx, cancel = context.WithCancel(context.Background())
-
-		// Use a very short debounce for tests
-		cleanup := httpoutput.SetTLSReloadDebounceForTest(50 * time.Millisecond)
-		DeferCleanup(cleanup)
 	})
 
 	AfterEach(func() {
@@ -99,7 +95,7 @@ var _ = Describe("TLS Hot Reload", func() {
 		serverCAFile := filepath.Join(tmpDir, "server-ca.crt")
 		Expect(os.WriteFile(serverCAFile, serverCAPEM, 0600)).To(Succeed())
 
-		// Create output with TLS config
+		// Create output with TLS config and short debounce for testing
 		config := &configv1alpha1.OutputHTTP{
 			URL: testServer.URL,
 			TLS: &configv1alpha1.ClientTLS{
@@ -110,7 +106,7 @@ var _ = Describe("TLS Hot Reload", func() {
 		}
 
 		var err error
-		httpOutput, err = httpoutput.New(ctx, config)
+		httpOutput, err = httpoutput.New(ctx, config, httpoutput.WithTLSReloadDebounce(50*time.Millisecond))
 		Expect(err).NotTo(HaveOccurred())
 
 		// First request should use client-1 cert
@@ -155,7 +151,7 @@ var _ = Describe("TLS Hot Reload", func() {
 		testServer.StartTLS()
 		defer testServer.Close()
 
-		// Create output trusting CA 1
+		// Create output trusting CA 1 with short debounce for testing
 		config := &configv1alpha1.OutputHTTP{
 			URL: testServer.URL,
 			TLS: &configv1alpha1.ClientTLS{
@@ -164,7 +160,7 @@ var _ = Describe("TLS Hot Reload", func() {
 		}
 
 		var err error
-		httpOutput, err = httpoutput.New(ctx, config)
+		httpOutput, err = httpoutput.New(ctx, config, httpoutput.WithTLSReloadDebounce(50*time.Millisecond))
 		Expect(err).NotTo(HaveOccurred())
 
 		// Request should succeed (server cert signed by CA 1, client trusts CA 1)
@@ -244,7 +240,7 @@ var _ = Describe("TLS Hot Reload", func() {
 		}
 
 		var err error
-		httpOutput, err = httpoutput.New(ctx, config)
+		httpOutput, err = httpoutput.New(ctx, config, httpoutput.WithTLSReloadDebounce(50*time.Millisecond))
 		Expect(err).NotTo(HaveOccurred())
 
 		// Initial request succeeds
@@ -253,11 +249,10 @@ var _ = Describe("TLS Hot Reload", func() {
 		// Write invalid cert data
 		Expect(os.WriteFile(certFile, []byte("not a valid cert"), 0600)).To(Succeed())
 
-		// Wait for debounce to fire
-		time.Sleep(200 * time.Millisecond)
-
-		// Requests should still succeed (old client kept on reload failure)
-		Expect(httpOutput.Send(context.Background(), []byte(`{"test": 2}`))).To(Succeed())
+		// Verify requests keep succeeding (old client kept on reload failure)
+		Consistently(func() error {
+			return httpOutput.Send(context.Background(), []byte(`{"test": 2}`))
+		}, 500*time.Millisecond, 50*time.Millisecond).Should(Succeed())
 	})
 })
 

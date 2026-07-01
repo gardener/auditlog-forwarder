@@ -47,3 +47,11 @@ func WithLogger(logger logr.Logger) Option {
 		return nil
 	}
 }
+
+// WithTLSReloadDebounce sets the debounce duration for TLS credential file change events.
+func WithTLSReloadDebounce(d time.Duration) Option {
+	return func(o *Output) error {
+		o.tlsReloadDebounce = d
+		return nil
+	}
+}
