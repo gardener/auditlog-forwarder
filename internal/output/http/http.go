@@ -15,8 +15,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -33,22 +35,32 @@ const (
 	contentEncodingGzip   = "gzip"
 )
 
+// tlsReloadDebounce is the delay after a filesystem event before reloading TLS credentials.
+// Kubernetes secret updates produce multiple events in rapid succession; this coalesces them.
+var tlsReloadDebounce = 500 * time.Millisecond
+
 var _ output.Output = (*Output)(nil)
 
 // Output represents an HTTP output for forwarding audit events.
 type Output struct {
 	url    string
-	client *http.Client
+	client atomic.Pointer[http.Client]
 	// compression algorithm to use (currently only "gzip" or empty for none)
 	compression string
 
 	maxSendAttempts int
 	baseBackoff     time.Duration
 	maxBackoff      time.Duration
+
+	// logger is used for logging TLS reload events in the background watcher
+	logger logr.Logger
+	// watcher is the fsnotify watcher for TLS credential files (nil if TLS is not configured)
+	watcher *fsnotify.Watcher
 }
 
 // New creates a new HTTP output with the given configuration.
-func New(config *configv1alpha1.OutputHTTP, options ...Option) (*Output, error) {
+// The context controls the lifetime of the TLS credential file watcher.
+func New(ctx context.Context, config *configv1alpha1.OutputHTTP, options ...Option) (*Output, error) {
 	if config == nil {
 		return nil, fmt.Errorf("HTTP output configuration is nil")
 	}
@@ -58,22 +70,29 @@ func New(config *configv1alpha1.OutputHTTP, options ...Option) (*Output, error) 
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
 
-	output := &Output{
+	o := &Output{
 		url:             config.URL,
-		client:          client,
 		compression:     config.Compression,
 		maxSendAttempts: 4,
 		baseBackoff:     500 * time.Millisecond,
 		maxBackoff:      3 * time.Second,
+		logger:          logr.Discard(),
 	}
+	o.client.Store(client)
 
 	for _, opt := range options {
-		if err := opt(output); err != nil {
+		if err := opt(o); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 
-	return output, nil
+	if config.TLS != nil {
+		if err := o.startTLSWatcher(ctx, config.TLS); err != nil {
+			return nil, fmt.Errorf("failed to start TLS file watcher: %w", err)
+		}
+	}
+
+	return o, nil
 }
 
 // Send sends data to the HTTP output.
@@ -111,7 +130,7 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 			req.Header.Set(headerContentEncoding, contentEncodingGzip)
 		}
 
-		resp, err := o.client.Do(req)
+		resp, err := o.client.Load().Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to send request: %w", err)
 		} else {
@@ -146,6 +165,107 @@ func (o *Output) Name() string {
 	return o.url
 }
 
+// Close stops the TLS file watcher and releases resources.
+func (o *Output) Close() error {
+	if o.watcher != nil {
+		return o.watcher.Close()
+	}
+	return nil
+}
+
+// startTLSWatcher begins watching the directories containing TLS credential files.
+// When files change, the HTTP client is rebuilt with freshly-loaded credentials.
+func (o *Output) startTLSWatcher(ctx context.Context, tlsConfig *configv1alpha1.ClientTLS) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create file watcher: %w", err)
+	}
+
+	// Watch the parent directories of all configured TLS files.
+	// This handles Kubernetes secret mounts where files are symlinks that get atomically swapped.
+	dirs := tlsDirectories(tlsConfig)
+	for _, dir := range dirs {
+		if err := watcher.Add(dir); err != nil {
+			_ = watcher.Close()
+			return fmt.Errorf("failed to watch directory %s: %w", dir, err)
+		}
+	}
+
+	o.watcher = watcher
+
+	go o.watchTLSFiles(ctx, tlsConfig)
+	return nil
+}
+
+// watchTLSFiles is the event loop for the TLS file watcher.
+func (o *Output) watchTLSFiles(ctx context.Context, tlsConfig *configv1alpha1.ClientTLS) {
+	var debounceTimer *time.Timer
+
+	for {
+		select {
+		case <-ctx.Done():
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			return
+
+		case event, ok := <-o.watcher.Events:
+			if !ok {
+				return
+			}
+			// Only react to events that indicate file content changed
+			if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Create) && !event.Has(fsnotify.Remove) {
+				continue
+			}
+
+			// Debounce: reset timer on each event
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			debounceTimer = time.AfterFunc(tlsReloadDebounce, func() {
+				o.reloadTLSClient(tlsConfig)
+			})
+
+		case _, ok := <-o.watcher.Errors:
+			if !ok {
+				return
+			}
+			// Watcher errors are non-fatal; continue watching
+		}
+	}
+}
+
+// reloadTLSClient rebuilds the HTTP client with freshly-loaded TLS credentials.
+// On failure, the existing client is kept.
+func (o *Output) reloadTLSClient(tlsConfig *configv1alpha1.ClientTLS) {
+	client, err := createHTTPClient(tlsConfig)
+	if err != nil {
+		o.logger.Error(err, "Failed to reload TLS credentials, keeping existing client")
+		return
+	}
+	o.client.Store(client)
+	o.logger.Info("Reloaded TLS credentials")
+}
+
+// tlsDirectories returns the unique parent directories of all configured TLS files.
+func tlsDirectories(tlsConfig *configv1alpha1.ClientTLS) []string {
+	seen := make(map[string]struct{})
+	var dirs []string
+
+	for _, file := range []string{tlsConfig.CAFile, tlsConfig.CertFile, tlsConfig.KeyFile} {
+		if file == "" {
+			continue
+		}
+		dir := filepath.Dir(file)
+		if _, ok := seen[dir]; !ok {
+			seen[dir] = struct{}{}
+			dirs = append(dirs, dir)
+		}
+	}
+
+	return dirs
+}
+
 // createHTTPClient creates an HTTP client with optional TLS configuration.
 func createHTTPClient(tlsConfig *configv1alpha1.ClientTLS) (*http.Client, error) {
 	client := &http.Client{
@@ -163,14 +283,9 @@ func createHTTPClient(tlsConfig *configv1alpha1.ClientTLS) (*http.Client, error)
 	}
 
 	if tlsConfig.CAFile != "" {
-		caCert, err := os.ReadFile(filepath.Clean(tlsConfig.CAFile))
+		caCertPool, err := loadCACertPool(tlsConfig.CAFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read CA certificate file: %w", err)
-		}
-
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			return nil, fmt.Errorf("failed to parse CA certificate")
+			return nil, err
 		}
 		transport.TLSClientConfig.RootCAs = caCertPool
 	}
@@ -185,6 +300,20 @@ func createHTTPClient(tlsConfig *configv1alpha1.ClientTLS) (*http.Client, error)
 
 	client.Transport = transport
 	return client, nil
+}
+
+// loadCACertPool reads a PEM-encoded CA certificate file and returns a cert pool.
+func loadCACertPool(caFile string) (*x509.CertPool, error) {
+	caCert, err := os.ReadFile(filepath.Clean(caFile))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificate file: %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to parse CA certificate")
+	}
+	return caCertPool, nil
 }
 
 func isRetryableStatus(statusCode int) bool {

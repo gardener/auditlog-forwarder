@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gardener/auditlog-forwarder/internal/output"
@@ -14,11 +15,11 @@ import (
 
 // NewHTTPOutputsWithOptions filters outputs by delivery mode and creates HTTP outputs with the given options.
 // It extracts only HTTP outputs matching the specified delivery mode and configures them with the provided options.
-func NewHTTPOutputsWithOptions(allOutputs []configv1alpha1.Output, deliveryMode configv1alpha1.DeliveryMode, httpOpts ...http.Option) ([]output.Output, error) {
+func NewHTTPOutputsWithOptions(ctx context.Context, allOutputs []configv1alpha1.Output, deliveryMode configv1alpha1.DeliveryMode, httpOpts ...http.Option) ([]output.Output, error) {
 	var outputs []output.Output
 	for _, outputConfig := range allOutputs {
 		if outputConfig.HTTP != nil && outputConfig.DeliveryMode == deliveryMode {
-			if httpOutput, err := http.New(outputConfig.HTTP, httpOpts...); err == nil {
+			if httpOutput, err := http.New(ctx, outputConfig.HTTP, httpOpts...); err == nil {
 				outputs = append(outputs, httpOutput)
 			} else {
 				return nil, fmt.Errorf("failed to create HTTP output: %w", err)

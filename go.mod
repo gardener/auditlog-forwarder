@@ -5,6 +5,7 @@ go 1.26.0
 tool github.com/gardener/gardener/hack
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.31.0
@@ -31,7 +32,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/color v1.19.0 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gardener/gardener v1.145.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect

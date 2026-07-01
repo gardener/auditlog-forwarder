@@ -55,14 +55,14 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(httpOutput).NotTo(BeNil())
 			Expect(httpOutput.Name()).To(Equal(testServer.URL))
 		})
 
 		It("should handle nil config", func() {
-			httpOutput, err := httpoutput.New(nil)
+			httpOutput, err := httpoutput.New(context.Background(), nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("is nil")))
 			Expect(httpOutput).To(BeNil())
@@ -76,7 +76,7 @@ var _ = Describe("HTTP Output", func() {
 				},
 			}
 
-			httpOutput, err := httpoutput.New(config)
+			httpOutput, err := httpoutput.New(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("failed to read CA certificate file")))
 			Expect(err).To(MatchError(ContainSubstring("/nonexistent/ca.pem")))
@@ -91,7 +91,7 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -127,7 +127,7 @@ var _ = Describe("HTTP Output", func() {
 				Compression: "gzip",
 			}
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
@@ -184,12 +184,25 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
 			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 			Expect(atomic.LoadInt32(&attempts)).To(Equal(int32(3)))
+		})
+	})
+
+	Describe("Close", func() {
+		It("should close without error when no TLS watcher is configured", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput.Close()).To(Succeed())
 		})
 	})
 })

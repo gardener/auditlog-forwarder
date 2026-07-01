@@ -4,7 +4,11 @@
 
 package http
 
-import "time"
+import (
+	"time"
+
+	"github.com/go-logr/logr"
+)
 
 // Option is a functional option for configuring an HTTP Output.
 type Option func(*Output) error
@@ -32,6 +36,14 @@ func WithBaseBackoff(backoff time.Duration) Option {
 func WithMaxBackoff(backoff time.Duration) Option {
 	return func(o *Output) error {
 		o.maxBackoff = backoff
+		return nil
+	}
+}
+
+// WithLogger sets the logger used for TLS credential reload events.
+func WithLogger(logger logr.Logger) Option {
+	return func(o *Output) error {
+		o.logger = logger
 		return nil
 	}
 }
