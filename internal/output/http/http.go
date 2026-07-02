@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -41,6 +42,15 @@ const (
 
 var _ output.Output = (*Output)(nil)
 
+// backoffFunc and sleepFunc are indirections over backoffDuration and
+// sleepWithContext used by Send()'s retry loop. They exist so tests can
+// substitute deterministic implementations via export_test.go; production
+// code must not reassign them. Send() is the only intended caller.
+var (
+	backoffFunc = backoffDuration
+	sleepFunc   = sleepWithContext
+)
+
 // Output represents an HTTP output for forwarding audit events.
 type Output struct {
 	url    string
@@ -54,10 +64,15 @@ type Output struct {
 
 	// tlsReloadDebounce is the delay before reloading TLS credentials after a filesystem event
 	tlsReloadDebounce time.Duration
-	// logger is used for logging TLS reload events in the background watcher
+	// logger is used by background operations of the HTTP output (currently the TLS file watcher).
 	logger logr.Logger
-	// watcher is the fsnotify watcher for TLS credential files (nil if TLS is not configured)
+	// watcher is the fsnotify watcher for TLS credential files (nil if TLS is not configured).
+	// Once assigned in startTLSWatcher it is never reassigned; closeOnce guards shutdown.
 	watcher *fsnotify.Watcher
+	// closeOnce ensures Close is idempotent and runs the shutdown sequence exactly once.
+	closeOnce sync.Once
+	// wg tracks the watchTLSFiles goroutine so Close can wait for it to exit.
+	wg sync.WaitGroup
 }
 
 // New creates a new HTTP output with the given configuration.
@@ -154,7 +169,7 @@ func (o *Output) Send(ctx context.Context, data []byte) error {
 		}
 
 		if attempt < o.maxSendAttempts {
-			if err := sleepWithContext(ctx, backoffDuration(attempt, o.baseBackoff, o.maxBackoff)); err != nil {
+			if err := sleepFunc(ctx, backoffFunc(attempt, o.baseBackoff, o.maxBackoff)); err != nil {
 				return fmt.Errorf("request canceled while retrying: %w, previous attempt failed with: %w", err, lastErr)
 			}
 		}
@@ -169,19 +184,33 @@ func (o *Output) Name() string {
 }
 
 // Close triggers shutdown of the TLS file watcher goroutine and releases resources.
-// It is safe to call multiple times.
+// It is safe to call multiple times; only the first call performs the shutdown.
+// Close blocks until the background watcher goroutine has exited, so any
+// in-flight TLS reload has completed by the time Close returns.
 func (o *Output) Close() error {
-	if o.watcher == nil {
-		return nil
-	}
-	err := o.watcher.Close()
-	o.watcher = nil
+	var err error
+	o.closeOnce.Do(func() {
+		if o.watcher != nil {
+			err = o.watcher.Close()
+		}
+		o.wg.Wait()
+	})
 	return err
 }
 
 // startTLSWatcher begins watching the directories containing TLS credential files.
 // When files change, the HTTP client is rebuilt with freshly-loaded credentials.
+//
+// If tlsConfig has no file paths set (all of CAFile, CertFile, KeyFile empty),
+// no watcher is created and no goroutine is spawned — there is nothing to
+// watch, so allocating an fsnotify handle and parking a goroutine on empty
+// channels would only waste an FD.
 func (o *Output) startTLSWatcher(ctx context.Context, tlsConfig *configv1alpha1.ClientTLS) error {
+	dirs := tlsDirectories(tlsConfig)
+	if len(dirs) == 0 {
+		return nil
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to create file watcher: %w", err)
@@ -189,7 +218,6 @@ func (o *Output) startTLSWatcher(ctx context.Context, tlsConfig *configv1alpha1.
 
 	// Watch the parent directories of all configured TLS files.
 	// This handles Kubernetes secret mounts where files are symlinks that get atomically swapped.
-	dirs := tlsDirectories(tlsConfig)
 	for _, dir := range dirs {
 		if err := watcher.Add(dir); err != nil {
 			_ = watcher.Close()
@@ -199,40 +227,71 @@ func (o *Output) startTLSWatcher(ctx context.Context, tlsConfig *configv1alpha1.
 
 	o.watcher = watcher
 
-	go o.watchTLSFiles(ctx, tlsConfig)
+	o.wg.Go(func() {
+		o.watchTLSFiles(ctx, tlsConfig)
+	})
 	return nil
 }
 
 // watchTLSFiles is the event loop for the TLS file watcher.
 func (o *Output) watchTLSFiles(ctx context.Context, tlsConfig *configv1alpha1.ClientTLS) {
-	var debounceTimer *time.Timer
+	watcher := o.watcher
+
+	// debounceTimer is created stopped; debounceC is set to the timer's
+	// channel exactly when the timer is armed and cleared when it fires or is
+	// stopped — this keeps the case a no-op until a reload is actually pending.
+	debounceTimer := time.NewTimer(0)
+	if !debounceTimer.Stop() {
+		<-debounceTimer.C
+	}
+	var debounceC <-chan time.Time
+
+	armDebounce := func() {
+		if debounceC != nil {
+			if !debounceTimer.Stop() {
+				<-debounceTimer.C
+			}
+		}
+		debounceTimer.Reset(o.tlsReloadDebounce)
+		debounceC = debounceTimer.C
+	}
+
+	// Guarantee the timer is stopped on every exit path so it does not linger
+	// past this goroutine's lifetime.
+	defer func() {
+		if debounceC != nil && !debounceTimer.Stop() {
+			<-debounceTimer.C
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
-			if debounceTimer != nil {
-				debounceTimer.Stop()
-			}
 			return
 
-		case event, ok := <-o.watcher.Events:
+		case <-debounceC:
+			debounceC = nil
+			o.reloadTLSClient(tlsConfig)
+
+		case event, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
-			// Only react to events that indicate file content changed
-			if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Create) && !event.Has(fsnotify.Remove) {
+			// Only react to events that indicate file content changed.
+			// Rename is included because Kubernetes secret updates atomically
+			// rename the `..data` symlink into place, which on some platforms
+			// surfaces as a Rename rather than a Create on the target.
+			if !event.Has(fsnotify.Write) && !event.Has(fsnotify.Create) &&
+				!event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
 				continue
 			}
 
-			// Debounce: reset timer on each event
-			if debounceTimer != nil {
-				debounceTimer.Stop()
-			}
-			debounceTimer = time.AfterFunc(o.tlsReloadDebounce, func() {
-				o.reloadTLSClient(tlsConfig)
-			})
+			// (Re)arm the debounce on each qualifying event. Coalescing many
+			// rapid events into a single reload happens naturally because the
+			// fire time is pushed forward on every reset.
+			armDebounce()
 
-		case err, ok := <-o.watcher.Errors:
+		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
 			}
@@ -249,7 +308,16 @@ func (o *Output) reloadTLSClient(tlsConfig *configv1alpha1.ClientTLS) {
 		o.logger.Error(err, "Failed to reload TLS credentials, keeping existing client")
 		return
 	}
-	o.client.Store(client)
+
+	old := o.client.Swap(client)
+	if old != nil {
+		// After swapping in the new client, idle keepalive connections on the previous
+		// client's transport are closed explicitly. Otherwise they linger in the old
+		// transport's pool until GC frees the transport, which can be a long time on
+		// mostly-idle servers — over many rotations that leaks file descriptors and
+		// TLS session state, defeating the point of the atomic swap.
+		old.CloseIdleConnections()
+	}
 	o.logger.Info("Reloaded TLS credentials")
 }
 

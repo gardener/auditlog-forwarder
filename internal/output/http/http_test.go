@@ -160,13 +160,13 @@ var _ = Describe("HTTP Output", func() {
 
 		It("should retry on retryable status codes", func() {
 			var attempts int32
-			originalBackoff := httpoutput.BackoffFunc
-			originalSleep := httpoutput.SleepFunc
-			httpoutput.BackoffFunc = func(_ int, _, _ time.Duration) time.Duration { return 0 }
-			httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
+			originalBackoff := *httpoutput.BackoffFunc
+			originalSleep := *httpoutput.SleepFunc
+			*httpoutput.BackoffFunc = func(_ int, _, _ time.Duration) time.Duration { return 0 }
+			*httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
 			DeferCleanup(func() {
-				httpoutput.BackoffFunc = originalBackoff
-				httpoutput.SleepFunc = originalSleep
+				*httpoutput.BackoffFunc = originalBackoff
+				*httpoutput.SleepFunc = originalSleep
 			})
 
 			testServer.Close()
@@ -203,6 +203,42 @@ var _ = Describe("HTTP Output", func() {
 			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(httpOutput.Close()).To(Succeed())
+		})
+
+		It("should be safe to call multiple times", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput.Close()).To(Succeed())
+			Expect(httpOutput.Close()).To(Succeed())
+		})
+	})
+
+	Describe("WithTLSReloadDebounce", func() {
+		It("should accept a zero duration (no debouncing)", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(context.Background(), config, httpoutput.WithTLSReloadDebounce(0))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput).NotTo(BeNil())
+		})
+
+		It("should reject a negative duration", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			out, err := httpoutput.New(context.Background(), config, httpoutput.WithTLSReloadDebounce(-1*time.Second))
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("TLS reload debounce must be non-negative")))
+			Expect(out).To(BeNil())
 		})
 	})
 })

@@ -5,6 +5,7 @@
 package http
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -40,7 +41,7 @@ func WithMaxBackoff(backoff time.Duration) Option {
 	}
 }
 
-// WithLogger sets the logger used for TLS credential reload events.
+// WithLogger sets the logger used by background operations of the HTTP output.
 func WithLogger(logger logr.Logger) Option {
 	return func(o *Output) error {
 		o.logger = logger
@@ -49,8 +50,13 @@ func WithLogger(logger logr.Logger) Option {
 }
 
 // WithTLSReloadDebounce sets the debounce duration for TLS credential file change events.
+// A duration of 0 disables debouncing (events trigger a reload immediately).
+// Negative durations are rejected.
 func WithTLSReloadDebounce(d time.Duration) Option {
 	return func(o *Output) error {
+		if d < 0 {
+			return fmt.Errorf("TLS reload debounce must be non-negative, got %s", d)
+		}
 		o.tlsReloadDebounce = d
 		return nil
 	}

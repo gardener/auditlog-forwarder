@@ -119,7 +119,15 @@ func (o *Options) ApplyTo(ctx context.Context, log logr.Logger, server *Config) 
 		outputhttp.WithLogger(log.WithName("output")),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create BestEffort outputs: %w", err)
+		// Guaranteed outputs already succeeded and might be holding resources;
+		// close them so they don't leak now that we're returning an error and the caller will not.
+		var closeErrs []error
+		for _, out := range guaranteedOutputs {
+			if cerr := out.Close(); cerr != nil {
+				closeErrs = append(closeErrs, fmt.Errorf("failed to close guaranteed output %q: %w", out.Name(), cerr))
+			}
+		}
+		return errors.Join(fmt.Errorf("failed to create BestEffort outputs: %w", err), errors.Join(closeErrs...))
 	}
 	server.OutputsGuaranteed = guaranteedOutputs
 	server.OutputsBestEffort = bestEffortOutputs

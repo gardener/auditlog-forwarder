@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package http
+package factory
 
-var (
-	BackoffFunc = &backoffFunc
-	SleepFunc   = &sleepFunc
-)
+// CloseOutputs exposes the unexported closeOutputs helper for testing.
+var CloseOutputs = closeOutputs
