@@ -80,7 +80,7 @@ var _ = Describe("Handler", func() {
 		}
 
 		var err error
-		outputInsts, err = outputfactory.NewHTTPOutputsWithOptions(outputConfigs, configv1alpha1.DeliveryModeGuaranteed)
+		outputInsts, err = outputfactory.NewHTTPOutputsWithOptions(context.Background(), outputConfigs, configv1alpha1.DeliveryModeGuaranteed)
 		Expect(err).NotTo(HaveOccurred())
 
 		// reinitialize metrics before each test
@@ -305,7 +305,7 @@ var _ = Describe("Handler", func() {
 			}
 
 			var err error
-			bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(outputConfigs, configv1alpha1.DeliveryModeBestEffort)
+			bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(context.Background(), outputConfigs, configv1alpha1.DeliveryModeBestEffort)
 			Expect(err).NotTo(HaveOccurred())
 
 			handler, err = NewHandler(logger, processors, outputInsts, bestEffortOutputs)
@@ -358,7 +358,7 @@ var _ = Describe("Handler", func() {
 				},
 			}
 
-			slowOutputs, err := outputfactory.NewHTTPOutputsWithOptions(slowOutputConfigs, configv1alpha1.DeliveryModeBestEffort)
+			slowOutputs, err := outputfactory.NewHTTPOutputsWithOptions(context.Background(), slowOutputConfigs, configv1alpha1.DeliveryModeBestEffort)
 			Expect(err).NotTo(HaveOccurred())
 
 			handler, err = NewHandler(logger, processors, outputInsts, slowOutputs)

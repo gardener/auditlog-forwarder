@@ -16,4 +16,7 @@ type Output interface {
 
 	// Name returns a human-readable name/identifier for this output.
 	Name() string
+
+	// Close releases resources associated with this output.
+	Close() error
 }

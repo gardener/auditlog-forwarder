@@ -55,14 +55,14 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(httpOutput).NotTo(BeNil())
 			Expect(httpOutput.Name()).To(Equal(testServer.URL))
 		})
 
 		It("should handle nil config", func() {
-			httpOutput, err := httpoutput.New(nil)
+			httpOutput, err := httpoutput.New(context.Background(), nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("is nil")))
 			Expect(httpOutput).To(BeNil())
@@ -76,7 +76,7 @@ var _ = Describe("HTTP Output", func() {
 				},
 			}
 
-			httpOutput, err := httpoutput.New(config)
+			httpOutput, err := httpoutput.New(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("failed to read CA certificate file")))
 			Expect(err).To(MatchError(ContainSubstring("/nonexistent/ca.pem")))
@@ -91,7 +91,7 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -127,7 +127,7 @@ var _ = Describe("HTTP Output", func() {
 				Compression: "gzip",
 			}
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
@@ -160,13 +160,13 @@ var _ = Describe("HTTP Output", func() {
 
 		It("should retry on retryable status codes", func() {
 			var attempts int32
-			originalBackoff := httpoutput.BackoffFunc
-			originalSleep := httpoutput.SleepFunc
-			httpoutput.BackoffFunc = func(_ int, _, _ time.Duration) time.Duration { return 0 }
-			httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
+			originalBackoff := *httpoutput.BackoffFunc
+			originalSleep := *httpoutput.SleepFunc
+			*httpoutput.BackoffFunc = func(_ int, _, _ time.Duration) time.Duration { return 0 }
+			*httpoutput.SleepFunc = func(_ context.Context, _ time.Duration) error { return nil }
 			DeferCleanup(func() {
-				httpoutput.BackoffFunc = originalBackoff
-				httpoutput.SleepFunc = originalSleep
+				*httpoutput.BackoffFunc = originalBackoff
+				*httpoutput.SleepFunc = originalSleep
 			})
 
 			testServer.Close()
@@ -184,12 +184,61 @@ var _ = Describe("HTTP Output", func() {
 			}
 
 			var err error
-			httpOutput, err = httpoutput.New(config)
+			httpOutput, err = httpoutput.New(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 
 			testData := []byte(`{"events": ["test"]}`)
 			Expect(httpOutput.Send(context.Background(), testData)).To(Succeed())
 			Expect(atomic.LoadInt32(&attempts)).To(Equal(int32(3)))
+		})
+	})
+
+	Describe("Close", func() {
+		It("should close without error when no TLS watcher is configured", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput.Close()).To(Succeed())
+		})
+
+		It("should be safe to call multiple times", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput.Close()).To(Succeed())
+			Expect(httpOutput.Close()).To(Succeed())
+		})
+	})
+
+	Describe("WithTLSReloadDebounce", func() {
+		It("should accept a zero duration (no debouncing)", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			var err error
+			httpOutput, err = httpoutput.New(context.Background(), config, httpoutput.WithTLSReloadDebounce(0))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(httpOutput).NotTo(BeNil())
+		})
+
+		It("should reject a negative duration", func() {
+			config := &configv1alpha1.OutputHTTP{
+				URL: testServer.URL,
+			}
+
+			out, err := httpoutput.New(context.Background(), config, httpoutput.WithTLSReloadDebounce(-1*time.Second))
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("TLS reload debounce must be non-negative")))
+			Expect(out).To(BeNil())
 		})
 	})
 })

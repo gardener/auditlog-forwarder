@@ -5,6 +5,7 @@
 package options
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -85,7 +87,7 @@ func (o *Options) LogConfig() (string, string) {
 }
 
 // ApplyTo applies the options to the config.
-func (o *Options) ApplyTo(server *Config) error {
+func (o *Options) ApplyTo(ctx context.Context, log logr.Logger, server *Config) error {
 	if err := o.applyServerConfigToServing(&server.Serving); err != nil {
 		return err
 	}
@@ -96,8 +98,10 @@ func (o *Options) ApplyTo(server *Config) error {
 	server.InjectAnnotations = o.Config.InjectAnnotations
 
 	guaranteedOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
+		ctx,
 		o.Config.Outputs,
 		configv1alpha1.DeliveryModeGuaranteed,
+		outputhttp.WithLogger(log.WithName("output")),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create Guaranteed outputs: %w", err)
@@ -106,14 +110,24 @@ func (o *Options) ApplyTo(server *Config) error {
 	// Purposefully use different backoff settings for BestEffort outputs
 	// in order to give more time to the target system to receive the events in case of transient errors.
 	bestEffortOutputs, err := outputfactory.NewHTTPOutputsWithOptions(
+		ctx,
 		o.Config.Outputs,
 		configv1alpha1.DeliveryModeBestEffort,
 		outputhttp.WithMaxSendAttempts(6),
 		outputhttp.WithBaseBackoff(1*time.Second),
 		outputhttp.WithMaxBackoff(6*time.Second),
+		outputhttp.WithLogger(log.WithName("output")),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create BestEffort outputs: %w", err)
+		// Guaranteed outputs already succeeded and might be holding resources;
+		// close them so they don't leak now that we're returning an error and the caller will not.
+		var closeErrs []error
+		for _, out := range guaranteedOutputs {
+			if cerr := out.Close(); cerr != nil {
+				closeErrs = append(closeErrs, fmt.Errorf("failed to close guaranteed output %q: %w", out.Name(), cerr))
+			}
+		}
+		return errors.Join(fmt.Errorf("failed to create BestEffort outputs: %w", err), errors.Join(closeErrs...))
 	}
 	server.OutputsGuaranteed = guaranteedOutputs
 	server.OutputsBestEffort = bestEffortOutputs

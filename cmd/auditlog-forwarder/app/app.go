@@ -23,6 +23,7 @@ import (
 
 	"github.com/gardener/auditlog-forwarder/cmd/auditlog-forwarder/app/options"
 	"github.com/gardener/auditlog-forwarder/internal/handler/audit"
+	"github.com/gardener/auditlog-forwarder/internal/output"
 	"github.com/gardener/auditlog-forwarder/internal/processor"
 	"github.com/gardener/auditlog-forwarder/internal/processor/annotation"
 	configv1alpha1 "github.com/gardener/auditlog-forwarder/pkg/apis/config/v1alpha1"
@@ -55,7 +56,7 @@ func NewCommand() *cobra.Command {
 			})
 
 			conf := &options.Config{}
-			if err := opt.ApplyTo(conf); err != nil {
+			if err := opt.ApplyTo(cmd.Context(), log, conf); err != nil {
 				return fmt.Errorf("cannot apply options: %w", err)
 			}
 
@@ -131,11 +132,24 @@ func run(ctx context.Context, log logr.Logger, conf *options.Config) error {
 		ch <- runServer(srvMetricsCtx, log, "metrics-server", false, srvMetrics, nil)
 	}(srvMetricsCh)
 
+	defer closeOutputs(log, conf.OutputsGuaranteed, conf.OutputsBestEffort)
+
 	select {
 	case err := <-srvMetricsCh:
 		return errors.Join(err, <-srvAuditCh)
 	case err := <-srvAuditCh:
 		return errors.Join(err, <-srvMetricsCh)
+	}
+}
+
+// closeOutputs closes all provided outputs, logging any errors.
+func closeOutputs(log logr.Logger, outputGroups ...[]output.Output) {
+	for _, outputs := range outputGroups {
+		for _, o := range outputs {
+			if err := o.Close(); err != nil {
+				log.Error(err, "Failed to close output", "output", o.Name())
+			}
+		}
 	}
 }
 
