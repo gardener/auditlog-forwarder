@@ -302,7 +302,7 @@ var _ = Describe("Output Factory", func() {
 			// The first output's watcher goroutine must have been closed; the goroutine
 			// count should return to (approximately) baseline. Some slack is allowed
 			// for scheduler / GC goroutines that come and go around the test boundary.
-			Eventually(runtime.NumGoroutine).WithTimeout(2 * time.Second).WithPolling(20 * time.Millisecond).
+			Eventually(runtime.NumGoroutine).WithTimeout(2*time.Second).WithPolling(20*time.Millisecond).
 				Should(BeNumerically("<=", baseline+1),
 					"watcher goroutine of successfully-created output should have been closed on partial failure")
 		})
