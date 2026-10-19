@@ -14,6 +14,9 @@ EFFECTIVE_VERSION      := $(VERSION)-$(shell git rev-parse HEAD)
 LD_FLAGS               := "-w $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION $(NAME))"
 KIND_LOCAL_KUBECONFIG  := $(REPO_ROOT)/dev/local/kind/kubeconfig
 
+#TODO(vpnachev): Unpin golangci-lint version once github.com/gardener/gardener updates to v2.15.0 or newer
+GOLANGCI_LINT_VERSION  := v2.15.0
+
 TOOLS_DIR := $(REPO_ROOT)/hack/tools
 include $(GARDENER_HACK_DIR)/tools.mk
 
