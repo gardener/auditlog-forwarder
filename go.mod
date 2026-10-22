@@ -2,8 +2,6 @@ module github.com/gardener/auditlog-forwarder
 
 go 1.26.8
 
-tool github.com/gardener/gardener/hack
-
 require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gardener/gardener v1.153.1
